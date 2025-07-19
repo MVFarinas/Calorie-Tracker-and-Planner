@@ -15,11 +15,24 @@ class CaloriesLog:
         self._entries.append(entry)
 
     def average_calories(self):
-        self._calories_average = sum(self._entries)/len(self._entries)
+        #entry list based
+        return None
 
-    def weight_change(self):
-        {}
-
+    def final_weight(self):
+        #entry list based
+        return None
+    
+    def change_calories(self):
+        #(start weight - final weight) * 3500
+        return None
+    
+    def average_change_calories(self):
+        #change calories / duration in days
+        return None
+    
+    def calculate_maintenance(self):
+        #cal_average + average_change_calories
+        return None
 
 class MaintenanceEstimator:
     def __init__(self):
