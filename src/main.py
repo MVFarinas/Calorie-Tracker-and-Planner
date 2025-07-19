@@ -22,8 +22,8 @@ class CaloriesLog:
     def weight_difference(self):
         start_weight = self._entries.weight[0]
         final_weight = self._entries.weight[-1]
-        weight_change = final_weight - start_weight
-        return weight_change
+        weight_diff = final_weight - start_weight
+        return weight_diff
     
     def days_tracked(self):
         first_day = self._entries.date[0]
@@ -31,29 +31,23 @@ class CaloriesLog:
         total_days = last_day - first_day + 1
         return total_days
 
-class MaintenanceEstimator:
+class MaintenanceCalculator:
     def __init__(self, calories_log: CaloriesLog):
         self._log = calories_log
 
-    def average_calories(self):
-    #entry list based
-        return None
+    def maintenance_calculator(self):
+        avg_cals = self._log.average_calories()
+        weight_diff = self._log.weight_difference()
 
-    def final_weight(self):
-        #entry list based
-        return None
+        cals_change = weight_diff * 3500
+        daily_cals_change = cals_change / self._log.days_tracked()
     
-    def change_calories(self):
-        #(start weight - final weight) * 3500
-        return None
-    
-    def average_change_calories(self):
-        #change calories / duration in days
-        return None
-    
-    def calculate_maintenance(self):
-        #cal_average + average_change_calories
-        return None
+        if weight_diff > 1: #final weight > start weight ; weight gain
+            maintenance = avg_cals + daily_cals_change
+        else:
+            maintenance = avg_cals - daily_cals_change
+            
+        return maintenance
 
 class GoalPlanner:
     def __init__(self):
