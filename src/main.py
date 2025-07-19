@@ -29,6 +29,7 @@ class CaloriesLog:
         first_day = self._entries.date[0]
         last_day = self._entries.date[-1]
         total_days = last_day - first_day + 1
+        return total_days
 
 class MaintenanceEstimator:
     def __init__(self, calories_log: CaloriesLog):
