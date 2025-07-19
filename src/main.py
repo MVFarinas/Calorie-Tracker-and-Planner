@@ -10,7 +10,16 @@ class DailyEntry:
 class CaloriesLog:
     def __init__(self):
         self._entries = [] #initiate empty list
+
+    def add_entry(self, entry: DailyEntry): #pull data from DailyEntry class
+        self._entries.append(entry)
+
+    def average_calories(self):
+        self._calories_average = sum(self._entries)/len(self._entries)
+
+    def weight_change(self):
         {}
+
 
 class MaintenanceEstimator:
     def __init__(self):
