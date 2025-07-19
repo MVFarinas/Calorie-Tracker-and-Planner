@@ -41,12 +41,8 @@ class MaintenanceCalculator:
 
         cals_change = weight_diff * 3500
         daily_cals_change = cals_change / self._log.days_tracked()
-    
-        if weight_diff > 1: #final weight > start weight ; weight gain
-            maintenance = avg_cals + daily_cals_change
-        else:
-            maintenance = avg_cals - daily_cals_change
-            
+        
+        maintenance = avg_cals - daily_cals_change
         return maintenance
 
 class GoalPlanner:
