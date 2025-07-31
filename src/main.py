@@ -44,7 +44,3 @@ class MaintenanceCalculator:
         
         maintenance = avg_cals - daily_cals_change
         return maintenance
-
-class GoalPlanner:
-    def __init__(self):
-        {}
