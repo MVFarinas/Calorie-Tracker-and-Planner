@@ -7,6 +7,36 @@ class DailyEntry:
         self._calories = calories
         self._weight = weight
 
+class Node:
+    def __init__(self, data:DailyEntry):
+        self._data = data
+        self._next = None
+
+class LinkedList:
+    def __init__(self):
+        self._head = None
+        self._length = 0
+
+    def append (self, data:DailyEntry):
+        new_node = Node(data)
+        if not self._head:
+            self._head = new_node
+
+        else:
+            current = self._head
+
+            while current._next:
+                current = current._next
+            current._next = new_node
+
+        self._length +=1
+
+    def __iter__(self):
+        current = self._head
+        while current:
+            yield current._data
+            current = current._next
+
 class CaloriesLog:
     def __init__(self):
         self._entries = [] #initiate empty list
@@ -44,3 +74,4 @@ class MaintenanceCalculator:
         
         maintenance = avg_cals - daily_cals_change
         return maintenance
+    
