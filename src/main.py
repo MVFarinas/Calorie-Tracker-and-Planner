@@ -4,8 +4,8 @@
 class DailyEntry:
     def __init__(self, date, weight, calories):
         self._date = date
-        self._calories = calories
         self._weight = weight
+        self._calories = calories
 
 class Node:
     def __init__(self, data:DailyEntry):
@@ -39,27 +39,19 @@ class LinkedList:
 
 class CaloriesLog:
     def __init__(self):
-        self._entries = [] #initiate empty list
+        self._entries = LinkedList()
 
     def add_entry(self, entry: DailyEntry): #pull data from DailyEntry class
         self._entries.append(entry)
 
     def average_calories(self):
-        total_cals = sum(self._entries.calories)
-        avg_cals = total_cals / len(self._entries.calories)
-        return avg_cals
+        return sum(entry.calories for entry in self._entries) / self._entries.length
     
     def weight_difference(self):
-        start_weight = self._entries.weight[0]
-        final_weight = self._entries.weight[-1]
-        weight_diff = final_weight - start_weight
-        return weight_diff
+        return self._entries.tail.data.weight - self._entries.head.data.weight
     
     def days_tracked(self):
-        first_day = self._entries.date[0]
-        last_day = self._entries.date[-1]
-        total_days = last_day - first_day + 1
-        return total_days
+        return (self._entries.tail.data.date - self._entries.head.data.date).days + 1
 
 class MaintenanceCalculator:
     def __init__(self, calories_log: CaloriesLog):
