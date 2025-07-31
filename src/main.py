@@ -75,3 +75,19 @@ class MaintenanceCalculator:
         maintenance = avg_cals - daily_cals_change
         return maintenance
     
+class TrendAnalyzer:
+    def __init__ (self, entry:DailyEntry):
+        self._entry = entry
+
+    def moving_average(self, window_size):
+        value = [entry.calories for entry in self]
+        if len(value) < window_size:
+            return []
+        
+        moving_averages = []
+        for i in range (len(values) - window_size + 1):
+            window = values [i:i + window_size]
+            average = sum(window) / window_size
+            moving_averages.append(average)
+
+        return moving_averages
