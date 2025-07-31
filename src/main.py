@@ -85,9 +85,14 @@ class TrendAnalyzer:
             return []
         
         moving_averages = []
-        for i in range (len(values) - window_size + 1):
-            window = values [i:i + window_size]
+        for i in range (len(value) - window_size + 1):
+            window = value [i:i + window_size]
             average = sum(window) / window_size
             moving_averages.append(average)
 
         return moving_averages
+    
+class EntryValidator:
+    @staticmethod
+    def is_valid(entry:DailyEntry) -> bool:
+        return 800 <= entry.calories <= 6000 and 50 <= entry._weight <= 600
