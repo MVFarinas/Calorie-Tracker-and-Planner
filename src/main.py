@@ -1,6 +1,8 @@
 #This program is a modification of the original source code to utilize DSAs 
 #This version will utiilize Linked Lists, allow for moving averages, data validation, and file persistence
 
+from scipy.optimize import*
+
 class DailyEntry:
     def __init__(self, date, weight, calories):
         self._date = date
