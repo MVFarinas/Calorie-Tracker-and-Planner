@@ -46,6 +46,8 @@ class CaloriesLog:
         self._entries.append(entry)
 
     def average_calories(self):
+        if self._entries._length == 0:
+            return 0
         return sum(entry.calories for entry in self._entries) / self._entries.length
     
     def weight_difference(self):
