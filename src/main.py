@@ -51,9 +51,13 @@ class CaloriesLog:
         return sum(entry.calories for entry in self._entries) / self._entries.length
     
     def weight_difference(self):
+        if self._entries._length < 2: #need a head and tail to calculate difference
+            return 0
         return self._entries.tail.data.weight - self._entries.head.data.weight
     
     def days_tracked(self):
+        if self._entries._length < 2: #need a head and tail to calculate days
+            return 0
         return (self._entries.tail.data.date - self._entries.head.data.date).days + 1
 
 class MaintenanceCalculator:
