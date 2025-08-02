@@ -95,3 +95,14 @@ class EntryValidator:
     @staticmethod
     def is_valid(entry:DailyEntry) -> bool:
         return 800 <= entry.calories <= 6000 and 50 <= entry._weight <= 600
+    
+class GoalPlanner:
+    def __init__ (self, current_weight, target_weight, time_frame, maintenance: MaintenanceCalculator):
+        self._current_weight = current_weight
+        self._target_weight = target_weight
+        self._time_frame = time_frame
+        self._maintenance = maintenance_calculator()
+
+    #def recommend_calories(self):
+
+
