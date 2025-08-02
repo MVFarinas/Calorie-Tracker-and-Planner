@@ -28,15 +28,11 @@ class LinkedList:
             self._head = new_node
 
         else:
-            current = self._head
-
-            while current._next:
-                current = current._next
-            current._next = new_node
-
+            self._tail.next = new_node # Link the new node to the end of the list
+            self._tail = new_node # Update the tail to the new node
         self._length +=1
 
-    def __iter__(self):
+    def __iter__(self): 
         current = self._head
         while current:
             yield current._data
