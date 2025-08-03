@@ -103,6 +103,11 @@ class GoalPlanner:
         self._time_frame = time_frame
         self._maintenance = maintenance_calculator()
 
-    #def recommend_calories(self):
-#nyello
-
+    def recommend_calories(self):
+        weight_diff = self._target_weight - self._current_weight
+        total_calories = weight_diff * 3500
+        daily_calories = total_calories / self._time_frame
+        
+        return self._maintenance + daily_calories
+    
+    
