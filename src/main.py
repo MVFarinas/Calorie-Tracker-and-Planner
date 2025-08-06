@@ -110,6 +110,10 @@ class GoalPlanner:
         
         return self._maintenance + daily_calories
     
-    # def recommend_macros(self):
+    # Example data
+
+    if __name__ == "__main__":
+        log = CaloriesLog()
+        
     
     
