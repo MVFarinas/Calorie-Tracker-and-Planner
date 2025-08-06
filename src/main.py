@@ -108,7 +108,7 @@ class GoalPlanner:
         total_calories = weight_diff * 3500
         daily_calories = total_calories / self._time_frame
         
-        return self._maintenance + daily_calories
+        return self._maintenance
     
     # def recommend_macros(self):
     
