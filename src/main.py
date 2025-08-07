@@ -2,7 +2,7 @@
 #This version will utiilize Linked Lists, allow for moving averages, data validation, and file persistence
 
 from scipy.optimize import minimize, minimize_scalar
-from datetime import datetime
+from datetime import datetime, timedelta
 
 class DailyEntry:
     def __init__(self, date, weight, calories):
@@ -58,7 +58,7 @@ class CaloriesLog:
     def days_tracked(self):
         if self._entries._length < 2: #need a head and tail to calculate days
             return 0
-        return (self._entries._tail._data._date - self._entries._head._data._date)._days + 1
+        return (self._entries._tail._data._date - self._entries._head._data._date).days + 1
 
 class MaintenanceCalculator:
     def __init__(self, calories_log: CaloriesLog):
@@ -129,9 +129,9 @@ if __name__ == "__main__":
     print(f'Maintenance Calories: {maintenance:.2f} calories per day')
 
     planner = GoalPlanner(
-        current_weight = log._head, 
-        target_weight = input(f'What is your target weight: '),
-        time_frame = input(f'What is your time frame: '),
+        current_weight = 178.5,
+        target_weight = 175,
+        time_frame = 30, 
     )
 
     intake_reccomendation = planner.recommend_calories()
