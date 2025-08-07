@@ -132,6 +132,7 @@ if __name__ == "__main__":
         current_weight = 178.5,
         target_weight = 175,
         time_frame = 30, 
+        maintenance_calories = maintenance
     )
 
     intake_reccomendation = planner.recommend_calories()
