@@ -2,6 +2,7 @@
 #This version will utiilize Linked Lists, allow for moving averages, data validation, and file persistence
 
 from scipy.optimize import*
+from datetime import*
 
 class DailyEntry:
     def __init__(self, date, weight, calories):
@@ -114,6 +115,10 @@ class GoalPlanner:
 
     if __name__ == "__main__":
         log = CaloriesLog()
+        log.add_entry(DailyEntry(datetime(2025, 7, 1), weight = 180, calories =2500))
+
+
+
         
     
     
