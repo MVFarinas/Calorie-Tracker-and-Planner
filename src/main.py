@@ -111,7 +111,9 @@ class GoalPlanner:
         
         return self._maintenance + daily_calories
     
-    # Example data
+    '''
+    Example Data
+    '''
 
     if __name__ == "__main__":
         log = CaloriesLog()
@@ -121,4 +123,3 @@ class GoalPlanner:
         log.add_entry(DailyEntry(datetime(2025, 7, 4), weight = 179, calories =2200))
         log.add_entry(DailyEntry(datetime(2025, 7, 5), weight = 178.7, calories =2300))
         log.add_entry(DailyEntry(datetime(2025, 7, 6), weight = 178.5, calories =2200))
-        
