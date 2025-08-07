@@ -97,11 +97,11 @@ class EntryValidator:
         return 800 <= entry.calories <= 6000 and 50 <= entry._weight <= 600
     
 class GoalPlanner:
-    def __init__ (self, current_weight, target_weight, time_frame, maintenance: MaintenanceCalculator):
+    def __init__ (self, current_weight, target_weight, time_frame, maintenance_calories):
         self._current_weight = current_weight
         self._target_weight = target_weight
         self._time_frame = time_frame
-        self._maintenance = maintenance_calculator()
+        self._maintenance = maintenance_calories
 
     def recommend_calories(self):
         weight_diff = self._target_weight - self._current_weight
