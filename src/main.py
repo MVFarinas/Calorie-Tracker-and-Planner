@@ -73,7 +73,6 @@ class MaintenanceCalculator:
 
         cals_change = weight_diff * 3500
         daily_cals_change = cals_change / self._log.days_tracked()
-        print("Days tracked:", days_tracked := self._log.days_tracked())
         
         maintenance = avg_cals + daily_cals_change
         return maintenance
