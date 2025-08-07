@@ -130,11 +130,10 @@ class GoalPlanner:
         print(f'Maintenance Calories: {maintenance:.2f} calories per day')
 
         planner = GoalPlanner(
-            current_weight = log._head
-            target_weight = input(f'What is your target weight: ')
-            time_frame = input(f'What is your time frame: ')
+            current_weight = log._head, 
+            target_weight = input(f'What is your target weight: '),
+            time_frame = input(f'What is your time frame: '),
         )
 
         intake_reccomendation = planner.recommend_calories()
         print(f'Your Recommended Daily Caloric Intake should be: {intake_reccomendation:.0f} calories per day')
-        
