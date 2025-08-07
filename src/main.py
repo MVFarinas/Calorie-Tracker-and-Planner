@@ -53,7 +53,7 @@ class CaloriesLog:
     def weight_difference(self):
         if self._entries._length < 2: #need a head and tail to calculate difference
             return 0
-        return self._entries._tail._data._weight - self._entries._head._data._weight
+        return self._entries._head._data._weight - self._entries._tail._data._weight #start weight - end weight
     
     def days_tracked(self):
         if self._entries._length < 2: #need a head and tail to calculate days
@@ -71,7 +71,7 @@ class MaintenanceCalculator:
         cals_change = weight_diff * 3500
         daily_cals_change = cals_change / self._log.days_tracked()
         
-        maintenance = avg_cals - daily_cals_change
+        maintenance = avg_cals + daily_cals_change
         return maintenance
     
 class TrendAnalyzer:
