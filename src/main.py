@@ -48,7 +48,7 @@ class CaloriesLog:
     def average_calories(self):
         if self._entries._length == 0:
             return 0
-        return sum(entry.calories for entry in self._entries) / self._entries.length
+        return sum(entry._calories for entry in self._entries) / self._entries._length
     
     def weight_difference(self):
         if self._entries._length < 2: #need a head and tail to calculate difference
