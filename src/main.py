@@ -123,3 +123,18 @@ class GoalPlanner:
         log.add_entry(DailyEntry(datetime(2025, 7, 4), weight = 179, calories =2200))
         log.add_entry(DailyEntry(datetime(2025, 7, 5), weight = 178.7, calories =2300))
         log.add_entry(DailyEntry(datetime(2025, 7, 6), weight = 178.5, calories =2200))
+
+        calculator = MaintenanceCalculator(log)
+        maintenance = calculator.maintenance_calculator()
+
+        print(f'Maintenance Calories: {maintenance:.2f} calories per day')
+
+        planner = GoalPlanner(
+            current_weight = log._head
+            target_weight = input(f'What is your target weight: ')
+            time_frame = input(f'What is your time frame: ')
+        )
+
+        intake_reccomendation = planner.recommend_calories()
+        print(f'Your Recommended Daily Caloric Intake should be: {intake_reccomendation:.0f} calories per day')
+        
