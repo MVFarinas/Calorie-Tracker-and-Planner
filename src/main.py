@@ -68,8 +68,12 @@ class MaintenanceCalculator:
         avg_cals = self._log.average_calories()
         weight_diff = self._log.weight_difference()
 
+        print("Average calories:", avg_cals)
+        print("Weight difference:", weight_diff)
+
         cals_change = weight_diff * 3500
         daily_cals_change = cals_change / self._log.days_tracked()
+        print("Days tracked:", days_tracked := self._log.days_tracked())
         
         maintenance = avg_cals + daily_cals_change
         return maintenance
