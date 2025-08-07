@@ -19,14 +19,13 @@ class LinkedList:
     def __init__(self):
         self._head = None
         self._tail = None
-        self._length = 0
+        self._length = 0 
 
     def append (self, data:DailyEntry):
         new_node = Node(data)
         if not self._head: # If the list is empty, set the new node as both head and tail
             self._head = new_node
             self._tail = new_node
-            self._head = new_node
 
         else:
             self._tail.next = new_node # Link the new node to the end of the list
