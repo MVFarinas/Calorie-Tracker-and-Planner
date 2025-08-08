@@ -129,10 +129,10 @@ if __name__ == "__main__":
     weight_diff = log.weight_difference()
     days_tracked = log.days_tracked()
 
-    print("Average calories:", avg_cals)
-    print("Weight difference:", weight_diff)
-    print("Days tracked:", days_tracked)
-    print(f'Maintenance Calories: {maintenance:.0f} calories per day')
+    print(f"Average calories: {avg_cals:.0f} calories")
+    print(f"Weight difference: {weight_diff:.2f} lbs")
+    print(f"Days tracked: {days_tracked:.2f} days")
+    print(f"Maintenance Calories: {maintenance:.0f} calories per day")
 
     planner = GoalPlanner(
         current_weight = 178.5,
