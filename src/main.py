@@ -131,7 +131,7 @@ if __name__ == "__main__":
 
     print(f"Average calories: {avg_cals:.0f} calories")
     print(f"Weight difference: {weight_diff:.2f} lbs")
-    print(f"Days tracked: {days_tracked:.2f} days")
+    print(f"Days tracked: {days_tracked:.0f} days")
     print(f"Maintenance Calories: {maintenance:.0f} calories per day")
 
     planner = GoalPlanner(
