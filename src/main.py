@@ -5,7 +5,11 @@ from entry import CaloriesLog, DailyEntry, MaintenanceCalculator
 
 if __name__ == "__main__":
     log = CaloriesLog()
-    entries = load_file()
+
+    # Swap between different file formats for testing
+    entries = load_file("data/sample_data.csv")
+    #entries = load_file("data/sample_data.json")
+    #entries = load_file("data/sample_data.txt")
 
     for entry in entries:
         log.add_entry(entry)
