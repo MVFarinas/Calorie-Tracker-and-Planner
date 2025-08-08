@@ -20,7 +20,7 @@ def get_duration():
         duration = input("How many data points would you like to consider (2 to 14)? ")
         if duration.isdigit():
             duration = int(duration)
-            if 2 <= length <= 14:
+            if 2 <= duration <= 14:
                 return duration
             else:
                 print("Please enter a number between 2 and 14")
