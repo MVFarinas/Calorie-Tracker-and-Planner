@@ -11,7 +11,6 @@ from main import DailyEntry
 
 def load_file(filepath):
     ext = Path(filepath).suffix.lower()
-
     if ext == '.csv':
         return load_csv(filepath)
     elif ext == '.json':
