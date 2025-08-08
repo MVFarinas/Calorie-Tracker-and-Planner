@@ -28,7 +28,7 @@ class LinkedList:
             self._tail = new_node
 
         else:
-            self._tail.next = new_node # Link the new node to the end of the list
+            self._tail._next = new_node # Link the new node to the end of the list
             self._tail = new_node # Update the tail to the new node
         self._length +=1
 
