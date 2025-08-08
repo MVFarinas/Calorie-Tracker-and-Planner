@@ -68,9 +68,6 @@ class MaintenanceCalculator:
         avg_cals = self._log.average_calories()
         weight_diff = self._log.weight_difference()
 
-        print("Average calories:", avg_cals)
-        print("Weight difference:", weight_diff)
-
         cals_change = weight_diff * 3500
         daily_cals_change = cals_change / self._log.days_tracked()
         
@@ -128,8 +125,14 @@ if __name__ == "__main__":
 
     calculator = MaintenanceCalculator(log)
     maintenance = calculator.maintenance_calculator()
+    avg_cals = log.average_calories()
+    weight_diff = log.weight_difference()
+    days_tracked = log.days_tracked()
 
-    print(f'Maintenance Calories: {maintenance:.2f} calories per day')
+    print("Average calories:", avg_cals)
+    print("Weight difference:", weight_diff)
+    print("Days tracked:", days_tracked)
+    print(f'Maintenance Calories: {maintenance:.0f} calories per day')
 
     planner = GoalPlanner(
         current_weight = 178.5,
