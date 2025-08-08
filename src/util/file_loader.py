@@ -7,7 +7,7 @@ import csv
 import json
 from pathlib import Path
 from datetime import datetime
-from main import DailyEntry
+from entry import DailyEntry
 
 def load_file(filepath):
     ext = Path(filepath).suffix.lower()
