@@ -1,8 +1,3 @@
-'''
-Sources: 
-1) https://docs.python.org/3/library/csv.html
-'''
-
 import csv
 import json
 from pathlib import Path
@@ -17,7 +12,6 @@ def load_file(filepath):
         return load_json(filepath)
     elif ext == '.txt':
         return load_txt(filepath)
-    
     else:
         raise ValueError(f'Unsupported file format')
     
