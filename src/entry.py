@@ -140,3 +140,12 @@ if __name__ == "__main__":
 
     intake_reccomendation = planner.recommend_calories()
     print(f'Your Recommended Daily Caloric Intake should be: {intake_reccomendation:.0f} calories per day')
+
+    #To do:
+    # 1. Implement TrendAnalyzer and EntryValidator classes
+    # 2. Add error handling and logging
+    # 3. Write unit tests for each class and method
+    # 4. Optimize performance for large datasets
+    # 5. Create a user interface for easier interaction
+
+    
