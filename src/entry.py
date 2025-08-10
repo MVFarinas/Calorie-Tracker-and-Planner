@@ -142,10 +142,12 @@ if __name__ == "__main__":
     print(f'Your Recommended Daily Caloric Intake should be: {intake_reccomendation:.0f} calories per day')
 
     #To do:
-    # 1. Implement TrendAnalyzer and EntryValidator classes
-    # 2. Add error handling and logging
+    # 1. Implement TrendAnalyzer (using moving windows) and EntryValidator classes
+    # 2. Add error handling and logging 
     # 3. Write unit tests for each class and method
-    # 4. Optimize performance for large datasets
-    # 5. Create a user interface for easier interaction
+    # 4. utilize scipy.optimize in GoalPlanner instead of simple calculations
+    # 5. use linprog for suggested meal plans based on caloric needs ??? (optional); Bayesian Optimization (optional)
+    # 6. Create a user interface for easier interaction (CLI or GUI)
+    # 7. Remove example data in entry.py before deployment
 
-    
+
