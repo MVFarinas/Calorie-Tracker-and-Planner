@@ -106,40 +106,6 @@ class GoalPlanner:
         daily_calories = total_calories / self._time_frame
         
         return self._maintenance + daily_calories
-    
-    '''
-    Example Data
-    '''
-
-if __name__ == "__main__":
-    log = CaloriesLog()
-    log.add_entry(DailyEntry(datetime(2025, 7, 1), weight = 180, calories =2500))        
-    log.add_entry(DailyEntry(datetime(2025, 7, 2), weight = 179.8, calories =2400))
-    log.add_entry(DailyEntry(datetime(2025, 7, 3), weight = 179.5, calories =2400))
-    log.add_entry(DailyEntry(datetime(2025, 7, 4), weight = 179, calories =2200))
-    log.add_entry(DailyEntry(datetime(2025, 7, 5), weight = 178.7, calories =2300))
-    log.add_entry(DailyEntry(datetime(2025, 7, 6), weight = 178.5, calories =2200))
-
-    calculator = MaintenanceCalculator(log)
-    maintenance = calculator.maintenance_calculator()
-    avg_cals = log.average_calories()
-    weight_diff = log.weight_difference()
-    days_tracked = log.days_tracked()
-
-    print(f"Average calories: {avg_cals:.0f} calories")
-    print(f"Weight difference: {weight_diff:.2f} lbs")
-    print(f"Days tracked: {days_tracked:.0f} days")
-    print(f"Maintenance Calories: {maintenance:.0f} calories per day")
-
-    planner = GoalPlanner(
-        current_weight = 178.5,
-        target_weight = 175,
-        time_frame = 30, 
-        maintenance_calories = maintenance
-    )
-
-    intake_reccomendation = planner.recommend_calories()
-    print(f'Your Recommended Daily Caloric Intake should be: {intake_reccomendation:.0f} calories per day')
 
     #To do:
     # 1. Implement TrendAnalyzer (using moving windows) and EntryValidator classes
@@ -148,6 +114,5 @@ if __name__ == "__main__":
     # 4. utilize scipy.optimize in GoalPlanner instead of simple calculations
     # 5. use linprog for suggested meal plans based on caloric needs ??? (optional); Bayesian Optimization (optional)
     # 6. Create a user interface for easier interaction (CLI or GUI)
-    # 7. Remove example data in entry.py before deployment
 
 
