@@ -108,11 +108,10 @@ class GoalPlanner:
         return self._maintenance + daily_calories
 
     #To do:
-    # 1. Implement TrendAnalyzer (using moving windows) and EntryValidator classes
+    # 1.utilize scipy.optimize in GoalPlanner instead of simple calculations 
     # 2. Add error handling and logging 
     # 3. Write unit tests for each class and method
-    # 4. utilize scipy.optimize in GoalPlanner instead of simple calculations
-    # 5. use linprog for suggested meal plans based on caloric needs ??? (optional); Bayesian Optimization (optional)
-    # 6. Create a user interface for easier interaction (CLI or GUI)
+    # 4. Implement TrendAnalyzer (using moving windows) and EntryValidator classes
+    # 5. Create a user interface for easier interaction (CLI or GUI)
 
 
