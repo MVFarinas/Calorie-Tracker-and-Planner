@@ -1,3 +1,6 @@
+from entry import CaloriesLog, DailyEntry, MaintenanceCalculator, GoalPlanner
+from datetime import datetime
+
 '''
 Example Data
 '''
