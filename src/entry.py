@@ -106,6 +106,15 @@ class GoalPlanner:
         daily_calories = total_calories / self._time_frame
         
         return self._maintenance + daily_calories
+    
+    def recommend_calories_optimized(self):
+        def objective(calories):
+            predicted_weight = self._current_weight + ((calories - self._maintenance) * self._time_frame / 3500)
+            return (predicted_weight - self._target_weight) ** 2  # Minimize the squared difference
+
+        result = minimize_scalar(objective, bounds=(800, 5000), method='bounded') # realistic calorie bounds
+        return result.x
+            
 
     # To do:
     # 1. Utilize scipy.optimize in GoalPlanner instead of simple calculations 
