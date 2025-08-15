@@ -113,3 +113,4 @@ class GoalPlanner:
     # 3. Write unit tests for each class and method
     # 4. Implement TrendAnalyzer (using moving windows) and EntryValidator classes
     # 5. Create a user interface for easier interaction (CLI or GUI)
+    # 6. Add documentation and comments for clarity
