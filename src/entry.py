@@ -108,7 +108,7 @@ class GoalPlanner:
         return self._maintenance + daily_calories
 
     #To do:
-    # 1.utilize scipy.optimize in GoalPlanner instead of simple calculations 
+    # 1. Utilize scipy.optimize in GoalPlanner instead of simple calculations 
     # 2. Add error handling and logging 
     # 3. Write unit tests for each class and method
     # 4. Implement TrendAnalyzer (using moving windows) and EntryValidator classes
