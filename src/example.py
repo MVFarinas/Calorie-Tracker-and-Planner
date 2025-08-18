@@ -7,12 +7,19 @@ Example Data
 
 if __name__ == "__main__":
     log = CaloriesLog()
-    log.add_entry(DailyEntry(datetime(2025, 7, 1), weight = 180, calories =2500))        
-    log.add_entry(DailyEntry(datetime(2025, 7, 2), weight = 179.8, calories =2400))
-    log.add_entry(DailyEntry(datetime(2025, 7, 3), weight = 179.5, calories =2400))
-    log.add_entry(DailyEntry(datetime(2025, 7, 4), weight = 179, calories =2200))
-    log.add_entry(DailyEntry(datetime(2025, 7, 5), weight = 178.7, calories =2300))
-    log.add_entry(DailyEntry(datetime(2025, 7, 6), weight = 178.5, calories =2200))
+    # Early days: bigger drops (water + glycogen loss)
+    log.add_entry(DailyEntry(datetime(2025, 7, 1), weight = 200, calories =2200))        
+    log.add_entry(DailyEntry(datetime(2025, 7, 2), weight = 198.8, calories =2200))
+    log.add_entry(DailyEntry(datetime(2025, 7, 3), weight = 198.2, calories =2150))
+    log.add_entry(DailyEntry(datetime(2025, 7, 4), weight = 197.9, calories =2100))
+    
+    # Then: slower losses
+    log.add_entry(DailyEntry(datetime(2025, 7, 5), weight = 197.7, calories =2100))
+    log.add_entry(DailyEntry(datetime(2025, 7, 6), weight = 197.6, calories =2050))
+    log.add_entry(DailyEntry(datetime(2025, 7, 7), weight = 197.5, calories =2050))
+    log.add_entry(DailyEntry(datetime(2025, 7, 8), weight = 197.5, calories =2050))
+    log.add_entry(DailyEntry(datetime(2025, 7, 9), weight = 197.4, calories =2000))
+    log.add_entry(DailyEntry(datetime(2025, 7, 10), weight = 197.4, calories =2000))
 
     calculator = MaintenanceCalculator(log)
     maintenance = calculator.maintenance_calculator()
