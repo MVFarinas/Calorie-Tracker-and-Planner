@@ -33,13 +33,13 @@ if __name__ == "__main__":
     print(f"Maintenance Calories: {maintenance:.0f} calories per day")
 
     planner = GoalPlanner(
-        current_weight = 178.5,
-        target_weight = 175,
+        current_weight = 197.4,
+        target_weight = 190,
         time_frame = 30, 
         maintenance_calories = maintenance
     )
 
     intake_reccomendation = planner.recommend_calories()
     intake_optimization = planner.recommend_calories_optimized()
-    print(f'Your Recommended Daily Caloric Intake should be: {intake_reccomendation:.0f} calories per day')
-    print(f'The Optimized Daily Caloric Intake should be: {intake_optimization:.0f} calories per day')
+    print(f'Your Recommended Daily Caloric Intake (algebra): {intake_reccomendation:.0f} calories/day')
+    print(f'The Optimized Daily Caloric Intake (nonlinear): {intake_optimization:.0f} calories/day')
