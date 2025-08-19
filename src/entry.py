@@ -118,6 +118,7 @@ class GoalPlanner:
 
     # To do:
     # 1. Create non-linear data for GoalPlanner to use 
+        # Data still currently leads to the same result, but this will allow for more complex scenarios
     # 2. Implement TrendAnalyzer (using moving windows) and EntryValidator classes
     # 3. Add error handling and logging 
     # 4. Write unit tests for each class and method
