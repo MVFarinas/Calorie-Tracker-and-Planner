@@ -54,5 +54,5 @@ if __name__ == "__main__":
 
     intake_reccomendation = planner.recommend_calories()
     intake_optimization = planner.recommend_calories_optimized()
-    print(f'Your Recommended Daily Caloric Intake (algebra): {intake_reccomendation:.0f} calories/day')
-    print(f'The Optimized Daily Caloric Intake (nonlinear): {intake_optimization:.0f} calories/day')
+    print(f'\nYour Recommended Daily Caloric Intake (algebra): {intake_reccomendation:.0f} calories/day')
+    print(f'The Optimized Daily Caloric Intake (nonlinear): {intake_optimization:.0f} calories/day\n')
