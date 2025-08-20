@@ -40,9 +40,9 @@ if __name__ == "__main__":
 
     trend = TrendAnalyzer(log)
     window_size = 3
-    cal_trend = trend.moving_average(window_size)
+    calorie_trend = trend.moving_average(window_size)
     print(f"\n--- Moving Average (Calories, window={window_size}) ---")
-    for i, avg in enumerate(cal_trend, start=window_size):
+    for i, avg in enumerate(calorie_trend, start=window_size):
         print(f"Day {i}: {avg:.0f} cal (smoothed)")
 
     planner = GoalPlanner(
