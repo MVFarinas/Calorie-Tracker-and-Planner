@@ -56,6 +56,12 @@ class CaloriesLog:
         if self._entries._length < 2: #need a head and tail to calculate days
             return 0
         return (self._entries._tail._data._date - self._entries._head._data._date).days + 1
+    
+    def __iter__(self):
+        current = self._entries._head
+        while current:
+            yield current._data
+            current = current._next
 
 class MaintenanceCalculator:
     def __init__(self, calories_log: CaloriesLog):
