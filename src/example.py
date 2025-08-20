@@ -21,11 +21,11 @@ if __name__ == "__main__":
         DailyEntry(datetime(2025, 7, 9), weight=197.4, calories=2000),
         DailyEntry(datetime(2025, 7, 10), weight=197.4, calories=2000),
     ]
-    for e in raw_entries:
-        if EntryValidator.is_valid(e):
-            log.add_entry(e)
+    for entry in raw_entries:
+        if EntryValidator.is_valid(entry):
+            log.add_entry(entry)
         else:
-            print(f"Invalid entry skipped: {e._date}, {e._weight} lbs, {e._calories} cal")
+            print(f"Invalid entry skipped: {entry._date}, {entry._weight} lbs, {entry._calories} cal")
 
     calculator = MaintenanceCalculator(log)
     maintenance = calculator.maintenance_calculator()
