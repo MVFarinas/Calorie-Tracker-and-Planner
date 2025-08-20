@@ -94,7 +94,7 @@ class TrendAnalyzer:
             return []
         
         moving_averages = []
-        
+
         for i in range (len(values) - window_size + 1): # Iterate through the list
             window = values [i:i + window_size] # Get the current window
             average = sum(window) / window_size
@@ -131,11 +131,11 @@ class GoalPlanner:
             
 
     # To do:
-    # 1. Create non-linear data for GoalPlanner to use 
-        # Data still currently leads to the same result, but this will allow for more complex scenarios
-    # 2. Implement TrendAnalyzer (using moving windows) and EntryValidator classes
-    # 3. Add error handling and logging 
-    # 4. Write unit tests for each class and method
-    # 5. Create a user interface for easier interaction (CLI or GUI)
-    # 6. Add documentation and comments for clarity
+    # 1. Introduce Non-linearity into the model -> allow for differences in algebraic vs optimization results
+        # Simulate weight change by day and decrease maintenance slightly with weight loss
+        # determine realistic curves to reduction/increase in calories
+    # 2. Add error handling and logging 
+    # 3. Write unit tests for each class and method
+    # 4. Create a user interface for easier interaction (CLI or GUI)
+    # 5. Add documentation and comments for clarity
    
