@@ -1,4 +1,4 @@
-from entry import CaloriesLog, DailyEntry, MaintenanceCalculator, GoalPlanner, EntryValidator
+from entry import CaloriesLog, DailyEntry, MaintenanceCalculator, GoalPlanner, EntryValidator, TrendAnalyzer
 from datetime import datetime
 
 '''
@@ -37,6 +37,13 @@ if __name__ == "__main__":
     print(f"Weight difference: {weight_diff:.2f} lbs")
     print(f"Days tracked: {days_tracked:.0f} days")
     print(f"Maintenance Calories: {maintenance:.0f} calories per day")
+
+    trend = TrendAnalyzer(log)
+    window_size = 3
+    cal_trend = trend.moving_average(window_size)
+    print(f"\n--- Moving Average (Calories, window={window_size}) ---")
+    for i, avg in enumerate(cal_trend, start=window_size):
+        print(f"Day {i}: {avg:.0f} cal (smoothed)")
 
     planner = GoalPlanner(
         current_weight = 197.4,
