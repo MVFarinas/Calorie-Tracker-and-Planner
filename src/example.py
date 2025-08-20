@@ -1,4 +1,4 @@
-from entry import CaloriesLog, DailyEntry, MaintenanceCalculator, GoalPlanner
+from entry import CaloriesLog, DailyEntry, MaintenanceCalculator, GoalPlanner, EntryValidator
 from datetime import datetime
 
 '''
@@ -7,19 +7,25 @@ Example Data
 
 if __name__ == "__main__":
     log = CaloriesLog()
-    # Early days: bigger drops (water + glycogen loss)
-    log.add_entry(DailyEntry(datetime(2025, 7, 1), weight = 200, calories =2200))        
-    log.add_entry(DailyEntry(datetime(2025, 7, 2), weight = 198.8, calories =2200))
-    log.add_entry(DailyEntry(datetime(2025, 7, 3), weight = 198.2, calories =2150))
-    log.add_entry(DailyEntry(datetime(2025, 7, 4), weight = 197.9, calories =2100))
-    
-    # Then: slower losses
-    log.add_entry(DailyEntry(datetime(2025, 7, 5), weight = 197.7, calories =2100))
-    log.add_entry(DailyEntry(datetime(2025, 7, 6), weight = 197.6, calories =2050))
-    log.add_entry(DailyEntry(datetime(2025, 7, 7), weight = 197.5, calories =2050))
-    log.add_entry(DailyEntry(datetime(2025, 7, 8), weight = 197.5, calories =2050))
-    log.add_entry(DailyEntry(datetime(2025, 7, 9), weight = 197.4, calories =2000))
-    log.add_entry(DailyEntry(datetime(2025, 7, 10), weight = 197.4, calories =2000))
+
+    # Example: add entries, but validate each one before inserting
+    raw_entries = [
+        DailyEntry(datetime(2025, 7, 1), weight=200, calories=2200),
+        DailyEntry(datetime(2025, 7, 2), weight=198.8, calories=2200),
+        DailyEntry(datetime(2025, 7, 3), weight=198.2, calories=2150),
+        DailyEntry(datetime(2025, 7, 4), weight=197.9, calories=2100),
+        DailyEntry(datetime(2025, 7, 5), weight=197.7, calories=2100),
+        DailyEntry(datetime(2025, 7, 6), weight=197.6, calories=2050),
+        DailyEntry(datetime(2025, 7, 7), weight=197.5, calories=2050),
+        DailyEntry(datetime(2025, 7, 8), weight=197.5, calories=2050),
+        DailyEntry(datetime(2025, 7, 9), weight=197.4, calories=2000),
+        DailyEntry(datetime(2025, 7, 10), weight=197.4, calories=2000),
+    ]
+    for e in raw_entries:
+        if EntryValidator.is_valid(e):
+            log.add_entry(e)
+        else:
+            print(f"Invalid entry skipped: {e._date}, {e._weight} lbs, {e._calories} cal")
 
     calculator = MaintenanceCalculator(log)
     maintenance = calculator.maintenance_calculator()
