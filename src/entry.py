@@ -56,8 +56,8 @@ class CaloriesLog:
         if self._entries._length < 2: #need a head and tail to calculate days
             return 0
         return (self._entries._tail._data._date - self._entries._head._data._date).days + 1
-    
-    def __iter__(self):
+
+    def __iter__(self): # allow iteration over the log
         current = self._entries._head
         while current:
             yield current._data
@@ -78,15 +78,23 @@ class MaintenanceCalculator:
         return maintenance
     
 class TrendAnalyzer:
-    def __init__ (self, entries:DailyEntry):
-        self._entries = entries
+    def __init__ (self, log:CaloriesLog):
+        self._log = log
 
-    def moving_average(self, window_size):
-        values = [entry._calories for entry in self._entries]
-        if len(values) < window_size:
+    def moving_average(self, window_size, field = "calories"):
+        if field not in ("calories", "weight"):
+            raise ValueError("Field must be 'calories' or 'weight'")
+        
+        if field == "calories":
+            values = [entry._calories for entry in self._log]
+        else:
+            values = [entry._weight for entry in self._log]
+
+        if len(values) < window_size or window_size <= 0: # Check if the window size is valid
             return []
         
         moving_averages = []
+        
         for i in range (len(values) - window_size + 1): # Iterate through the list
             window = values [i:i + window_size] # Get the current window
             average = sum(window) / window_size
