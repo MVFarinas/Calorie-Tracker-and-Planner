@@ -10,16 +10,17 @@ if __name__ == "__main__":
 
     # Example: add entries, but validate each one before inserting
     raw_entries = [
-        DailyEntry(datetime(2025, 7, 1), weight=200, calories=2200),
-        DailyEntry(datetime(2025, 7, 2), weight=198.8, calories=2200),
-        DailyEntry(datetime(2025, 7, 3), weight=198.2, calories=2150),
-        DailyEntry(datetime(2025, 7, 4), weight=197.9, calories=2100),
-        DailyEntry(datetime(2025, 7, 5), weight=197.7, calories=2100),
-        DailyEntry(datetime(2025, 7, 6), weight=197.6, calories=2050),
-        DailyEntry(datetime(2025, 7, 7), weight=197.5, calories=2050),
-        DailyEntry(datetime(2025, 7, 8), weight=197.5, calories=2050),
-        DailyEntry(datetime(2025, 7, 9), weight=197.4, calories=2000),
-        DailyEntry(datetime(2025, 7, 10), weight=197.4, calories=2000),
+    DailyEntry(datetime(2025, 7, 1), weight=200, calories=2200),
+    DailyEntry(datetime(2025, 7, 2), weight=198.8, calories=2200),
+    DailyEntry(datetime(2025, 7, 3), weight=198.1, calories=2200),
+    DailyEntry(datetime(2025, 7, 4), weight=197.7, calories=2200),
+    DailyEntry(datetime(2025, 7, 5), weight=197.5, calories=2200),
+    DailyEntry(datetime(2025, 7, 6), weight=197.4, calories=2200),
+    DailyEntry(datetime(2025, 7, 7), weight=197.3, calories=2200),
+    DailyEntry(datetime(2025, 7, 8), weight=197.2, calories=2200),
+    DailyEntry(datetime(2025, 7, 9), weight=197.2, calories=2200),
+    DailyEntry(datetime(2025, 7, 10), weight=197.2, calories=2200),
+
     ]
     for entry in raw_entries:
         if EntryValidator.is_valid(entry):
