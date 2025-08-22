@@ -41,7 +41,7 @@ def load_txt(filepath):
     entries = []
     with open(filepath, 'r') as file:
         for line in file:
-            date_str, weight_str, calories_str = line.strip().split(',')
+            date_str, weight_str, calories_str = line.strip().split()
             date = datetime.strptime(date_str, '%Y-%m-%d')
             weight = float(weight_str)
             calories = int(calories_str)
