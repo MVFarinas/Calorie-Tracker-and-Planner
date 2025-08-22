@@ -144,7 +144,8 @@ class GoalPlanner:
         return result.x
             
     # To do:
-    # 1. Fix JSON and CSV data
+    # 1. Fix JSON and CSV data (Downloads)
+        # fix file_loader and entry import
     # 2. Entry Validator - ensure entry._date is datetime and check weight change for consecutive days (reject large jumps)
     # 3. Write unit tests for each class and method - particularly TrengAnalyzer and GoalPlanner
     # 4. Create a user interface for easier interaction (CLI or GUI)
