@@ -132,7 +132,11 @@ class GoalPlanner:
                 weight += daily_deficit / 3500
                 
                 #adjust maintenance slightly based on weight change
-                maintenance -= (weight - self._current_weight) * 10 / 3500 
+                if daily_deficit < 0:
+                    maintenance -= 5 * (abs(weight - self._current_weight)
+                elif daily_deficit > 0:
+                    maintenance += 5 * (abs(weight - self._current_weight) 
+                                        
 
             return (weight - self._target_weight) ** 2  # Minimize the squared difference
 
