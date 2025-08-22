@@ -145,7 +145,7 @@ class GoalPlanner:
             
     # To do:
     # 1. Fix JSON and CSV data
-    # 2. Add error handling and logging 
-    # 3. Write unit tests for each class and method
+    # 2. Entry Validator - ensure entry._date is datetime and check weight change for consecutive days (reject large jumps)
+    # 3. Write unit tests for each class and method - particularly TrengAnalyzer and GoalPlanner
     # 4. Create a user interface for easier interaction (CLI or GUI)
     # 5. Add documentation and comments for clarity
