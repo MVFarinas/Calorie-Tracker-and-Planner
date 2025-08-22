@@ -144,9 +144,7 @@ class GoalPlanner:
         return result.x
             
     # To do:
-    # 1. Introduce Non-linearity into the model -> allow for differences in algebraic vs optimization results
-        # Simulate weight change by day and decrease maintenance slightly with weight loss
-        # determine realistic curves to reduction/increase in calories
+    # 1. Fix JSON and CSV data
     # 2. Add error handling and logging 
     # 3. Write unit tests for each class and method
     # 4. Create a user interface for easier interaction (CLI or GUI)
