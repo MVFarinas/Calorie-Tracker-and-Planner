@@ -41,9 +41,22 @@ def load_txt(filepath):
     entries = []
     with open(filepath, 'r') as file:
         for line in file:
-            date_str, weight_str, calories_str = line.strip().split()
-            date = datetime.strptime(date_str, '%Y-%m-%d')
-            weight = float(weight_str)
-            calories = int(calories_str)
-            entries.append(DailyEntry(date, weight, calories))
+
+            # normalize delimiters and split
+            parts = line.replace(',', ' ').split()
+
+            #skip empty lines
+            if len(parts) < 3:
+                continue
+
+            # parse date, weight, and calories
+            date_str, weight_str, calories_str = parts[0], parts[1], parts[2]
+
+            try:
+                date = datetime.strptime(date_str, '%Y-%m-%d')
+                weight = float(weight_str)
+                calories = int(calories_str)
+                entries.append(DailyEntry(date, weight, calories))
+            except (ValueError, TypeError): #skip invalid rows
+                continue # dont crash on invalid data
     return entries
