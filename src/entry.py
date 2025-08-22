@@ -129,7 +129,6 @@ class GoalPlanner:
         result = minimize_scalar(objective, bounds=(800, 5000), method='bounded') # realistic calorie bounds
         return result.x
             
-
     # To do:
     # 1. Introduce Non-linearity into the model -> allow for differences in algebraic vs optimization results
         # Simulate weight change by day and decrease maintenance slightly with weight loss
@@ -138,4 +137,3 @@ class GoalPlanner:
     # 3. Write unit tests for each class and method
     # 4. Create a user interface for easier interaction (CLI or GUI)
     # 5. Add documentation and comments for clarity
-   
