@@ -123,8 +123,18 @@ class GoalPlanner:
     
     def recommend_calories_optimized(self):
         def objective(calories):
-            predicted_weight = self._current_weight + ((calories - self._maintenance) * self._time_frame / 3500)
-            return (predicted_weight - self._target_weight) ** 2  # Minimize the squared difference
+            weight = self._current_weight
+            maintenance = self._maintenance
+            time_frame = self._time_frame
+
+            for day in range(time_frame):
+                daily_deficit = calories - maintenance
+                weight += daily_deficit / 3500
+                
+                #adjust maintenance slightly based on weight change
+                maintenance -= (weight - self._current_weight) * 10 / 3500 
+
+            return (weight - self._target_weight) ** 2  # Minimize the squared difference
 
         result = minimize_scalar(objective, bounds=(800, 5000), method='bounded') # realistic calorie bounds
         return result.x
