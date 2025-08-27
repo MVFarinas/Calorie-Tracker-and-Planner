@@ -150,4 +150,3 @@ class GoalPlanner:
     # 3. Write unit tests for each class and method - particularly TrengAnalyzer and GoalPlanner
     # 4. Add documentation and comments for clarity
     # 5. Create a user interface for easier interaction (CLI or GUI)
-    
