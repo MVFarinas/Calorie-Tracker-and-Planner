@@ -26,7 +26,7 @@ class DailyEntry:
         return f'DailyEntry({self._date.strftime('%Y-%m-%d')}, {self._weight}lbs, {self._calories}cals)'
 
 class Node:
-    def __init__(self, data:DailyEntry):
+    def __init__(self, data: DailyEntry):
         self._data = data
         self._next = None
 
@@ -38,7 +38,8 @@ class LinkedList:
 
     def append (self, data:DailyEntry):
         new_node = Node(data)
-        if not self._head: # If the list is empty, set the new node as both head and tail
+        # If the list is empty, set the new node as both head and tail
+        if not self._head: 
             self._head = new_node
             self._tail = new_node
 
@@ -52,6 +53,10 @@ class LinkedList:
         while current:
             yield current._data
             current = current._next
+
+    def __len__(self) -> int:
+        return self._length
+
 
 class CaloriesLog:
     def __init__(self):
