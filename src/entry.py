@@ -2,7 +2,9 @@ from scipy.optimize import minimize, minimize_scalar
 from datetime import datetime, timedelta
 
 class DailyEntry:
-    def __init__(self, date, weight, calories):
+    def __init__(self, date: datetime, weight: float, calories: int):
+        if not isinstance(date, datetime):
+            raise TypeError("Date must be a datetime object")
         self._date = date
         self._weight = weight
         self._calories = calories
