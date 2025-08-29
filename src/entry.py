@@ -21,6 +21,9 @@ class DailyEntry:
     @property
     def calories(self):
         return self._calories
+    
+    def __str__(self) -> str:
+        return f'DailyEntry({self._date.strftime('%m-%d-%Y')}, {self._weight}lbs, {self._calories}cals)'
 
 class Node:
     def __init__(self, data:DailyEntry):
