@@ -16,4 +16,3 @@ if __name__ == "__main__":
 
     maintenance = MaintenanceCalculator(log)
     print(f"Average Daily Calories: {maintenance.maintenance_calculator():.0f}")
-    
