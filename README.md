@@ -2,7 +2,7 @@
 
 A Python project that helps users estimate their maintenance calories(TDEE) based on tracked caloric intake and body weight over time instead of algebraic calculations based on weight and height.
 
-The project supports importing data from `.csv` and `.json`, performs analysis with custom data structures, and even applies nonlinear optimization to provide more realistic caloric recommendations.
+The project supports importing data from `.csv` and `.json`, performs analysis with custom data structures, and even applies nonlinear optimization (sciPy minimize_scalar) to provide more realistic caloric recommendations when reverse engineering calories for a goal weight.
 
 # Features
 
@@ -29,7 +29,7 @@ The project supports importing data from `.csv` and `.json`, performs analysis w
 
 # Requirements
 
-- Python 3
+- Python3
 - scipy
 
 # Usage
