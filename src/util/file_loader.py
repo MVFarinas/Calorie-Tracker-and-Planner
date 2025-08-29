@@ -5,18 +5,20 @@ from datetime import datetime
 from entry import DailyEntry
 
 class FileLoader:
-    def load_file(filepath: str):
+    @staticmethod
+    def load_file(filepath: str) -> list[DailyEntry]:
         ext = Path(filepath).suffix.lower()
         if ext == '.csv':
-            return load_csv(filepath)
+            return FileLoader._load_csv(filepath)
         elif ext == '.json':
-            return load_json(filepath)
+            return FileLoader._load_json(filepath)
         elif ext == '.txt':
-            return load_txt(filepath)
+            return FileLoader._load_txt(filepath)
         else:
             raise ValueError(f'Unsupported file format')
-    
-    def load_csv(filepath):
+
+    @staticmethod
+    def _load_csv(filepath: str) -> list[DailyEntry]:
         entries = []
         with open(filepath, 'r') as file:
             reader = csv.DictReader(file)
@@ -26,8 +28,9 @@ class FileLoader:
                 calories = int(row['calories'])
                 entries.append(DailyEntry(date, weight, calories))
         return entries
-    
-    def load_json(filepath):
+
+    @staticmethod
+    def _load_json(filepath: str) -> list[DailyEntry]:
         entries = []
         with open(filepath, 'r') as file:
             data = json.load(file)
@@ -36,28 +39,4 @@ class FileLoader:
                 weight = float(row['weight'])
                 calories = int(row['calories'])
                 entries.append(DailyEntry(date, weight, calories))
-        return entries
-
-    def load_txt(filepath):
-        entries = []
-        with open(filepath, 'r') as file:
-            for line in file:
-
-                # normalize delimiters and split
-                parts = line.replace(',', ' ').split()
-
-                #skip empty lines
-                if len(parts) < 3:
-                    continue
-
-                # parse date, weight, and calories
-                date_str, weight_str, calories_str = parts[0], parts[1], parts[2]
-
-                try:
-                    date = datetime.strptime(date_str, '%Y-%m-%d')
-                    weight = float(weight_str)
-                    calories = int(calories_str)
-                    entries.append(DailyEntry(date, weight, calories))
-                except (ValueError, TypeError): #skip invalid rows
-                    continue # dont crash on invalid data
         return entries
