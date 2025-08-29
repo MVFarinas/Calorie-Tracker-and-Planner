@@ -1,5 +1,10 @@
 from scipy.optimize import minimize, minimize_scalar
 from datetime import datetime, timedelta
+import logging
+
+# Configure root logger ; see info (add entry), warning -- good for debugging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
 
 class DailyEntry:
     def __init__(self, date: datetime, weight: float, calories: int):
@@ -57,12 +62,12 @@ class LinkedList:
     def __len__(self) -> int:
         return self._length
 
-
 class CaloriesLog:
     def __init__(self):
         self._entries = LinkedList()
 
-    def add_entry(self, entry: DailyEntry): #pull data from DailyEntry class
+    #pull data from DailyEntry class
+    def add_entry(self, entry: DailyEntry): 
         self._entries.append(entry)
 
     def average_calories(self):
