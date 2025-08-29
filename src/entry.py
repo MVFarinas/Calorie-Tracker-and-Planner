@@ -105,11 +105,11 @@ class CaloriesLog:
     def get_entries_list(self) -> list[DailyEntry]:
         return list(self._entries)
 
-class MaintenanceCalculator:
+class MaintenanceCalculator: 
     def __init__(self, calories_log: CaloriesLog):
         self._log = calories_log
 
-    def maintenance_calculator(self):
+    def maintenance_calculator(self) -> float:
         avg_cals = self._log.average_calories()
         weight_diff = self._log.weight_difference()
 
@@ -144,11 +144,47 @@ class TrendAnalyzer:
 
         return moving_averages
     
+    def weight_trend(self) -> str:
+        if len(self._log._entries) < 2:
+            return "Insufficient data"
+        
+        weight_diff = self._log.weight_difference()
+        days = self._log.days_tracked()
+        rate = abs(weight_diff) / days
+        
+        if abs(weight_diff) < 0.5:
+            return f"Stable weight (+/- {abs(weight_diff):.1f} lbs over {days} days)"
+        elif weight_diff > 0:
+            return f"Losing weight: {rate:.1f} lbs/day average"
+        else:
+            return f"Gaining weight: {rate:.1f} lbs/day average"
+    
 class EntryValidator:
     @staticmethod
-    def is_valid(entry:DailyEntry) -> bool:
-        return 800 <= entry._calories <= 6000 and 50 <= entry._weight <= 600
-    
+    def is_valid(entry:DailyEntry, existing_entries: LinkedList = None) -> bool:
+        if not (800 <= entry._calories <= 6000):
+            logging.warning(f'Calories are out of range: {entry._calories}')
+            return False
+        
+        if not (50 <= entry._weight <= 600):
+            logging.warning(f'Weight is out of range: {entry._weight}')
+            return False
+        
+        if not isinstance(entry._date, datetime):
+            logging.warning(f'Date is not a datetime object: {entry._date}')
+            return False
+        
+        if existing_entries and len(existing_entries) > 0:
+            last_entry = existing_entries._tail._data
+            weight_change = abs(entry._weight - last_entry._weight)
+            days_diff = (entry._date - last_entry._date).days
+
+            if days_diff == 1 and weight_change > 5:
+                logging.warning(f'Weight change too large for consecutive days: {entry._weight:.1f} lbs in 1 day')
+                return False
+        
+        return True
+
 class GoalPlanner:
     def __init__ (self, current_weight, target_weight, time_frame, maintenance_calories):
         self._current_weight = current_weight
