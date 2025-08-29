@@ -20,7 +20,6 @@ if __name__ == "__main__":
         DailyEntry(datetime(2025, 7, 8), weight=197.5, calories=2050),
         DailyEntry(datetime(2025, 7, 9), weight=197.4, calories=2000),
         DailyEntry(datetime(2025, 7, 10), weight=197.4, calories=2000),
-
         DailyEntry(datetime(2025, 7, 11), weight=197.1, calories=2200),
         DailyEntry(datetime(2025, 7, 12), weight=197.0, calories=2200),
         DailyEntry(datetime(2025, 7, 13), weight=197.0, calories=2200),
@@ -32,6 +31,8 @@ if __name__ == "__main__":
         DailyEntry(datetime(2025, 7, 19), weight=196.8, calories=2200),
         DailyEntry(datetime(2025, 7, 20), weight=196.8, calories=2200),
     ]
+
+    print("\n--- Loading entries ---")
     for entry in raw_entries:
         if EntryValidator.is_valid(entry):
             log.add_entry(entry)
@@ -43,27 +44,25 @@ if __name__ == "__main__":
     avg_cals = log.average_calories()
     weight_diff = log.weight_difference()
     days_tracked = log.days_tracked()
+    analyzer = TrendAnalyzer(log)
 
+    print("\n--- Quick Demo Results ---")
     print(f"Average calories: {avg_cals:.0f} calories")
     print(f"Weight difference: {weight_diff:.2f} lbs")
     print(f"Days tracked: {days_tracked:.0f} days")
-    print(f"Maintenance Calories: {maintenance:.0f} calories per day")
-
-    trend = TrendAnalyzer(log)
-    window_size = 3
-    calorie_trend = trend.moving_average(window_size)
-    print(f"\n--- Moving Average (calories, window = {window_size}) ---")
-    for i, avg in enumerate(calorie_trend, start=window_size):
-        print(f"Day {i}: {avg:.0f} cal")
+    print(f"Maintenance Estimate: {maintenance:.0f} calories per day")
+    print(f"Weight trend: {analyzer.weight_trend()}")
 
     planner = GoalPlanner(
-        current_weight = 197.4,
+        current_weight = log.get_entries_list()[-1]._weight,
         target_weight = 215,
-        time_frame = 90, 
+        time_frame = 30, 
         maintenance_calories = maintenance
     )
 
     intake_reccomendation = planner.recommend_calories()
     intake_optimization = planner.recommend_calories_optimized()
-    print(f'\nYour Recommended Daily Caloric Intake (algebra): {intake_reccomendation:.0f} calories/day')
-    print(f'The Optimized Daily Caloric Intake (nonlinear): {intake_optimization:.0f} calories/day\n')
+    print(f'\n--- Goal Planning ---')
+    print(f'To achieve a weight of {planner._target_weight} lbs in {planner._time_frame} days:')
+    print(f'Your Recommended Daily Caloric Intake (Algebraic): {intake_reccomendation:.0f} calories/day')
+    print(f'Your Optimized Daily Caloric Intake (Nonlinear): {intake_optimization:.0f} calories/day\n')
