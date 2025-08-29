@@ -1,8 +1,102 @@
 [
-    {"date": "2025-07-01", "weight": 180, "calories": 2500},
-    {"date": "2025-07-02", "weight": 179.8, "calories": 2400},
-    {"date": "2025-07-03", "weight": 179.5, "calories": 2400},
-    {"date": "2025-07-04", "weight": 179, "calories": 2200},
-    {"date": "2025-07-05", "weight": 178.7, "calories": 2300},
-    {"date": "2025-07-06", "weight": 178.5, "calories": 2200}
+    {
+        "date": "2025-07-01",
+        "weight": 200,
+        "calories": 2200
+    },
+    {
+        "date": "2025-07-02",
+        "weight": 198.8,
+        "calories": 2200
+    },
+    {
+        "date": "2025-07-03",
+        "weight": 198.2,
+        "calories": 2150
+    },
+    {
+        "date": "2025-07-04",
+        "weight": 197.9,
+        "calories": 2100
+    },
+    {
+        "date": "2025-07-05",
+        "weight": 197.7,
+        "calories": 2100
+    },
+    {
+        "date": "2025-07-06",
+        "weight": 197.6,
+        "calories": 2050
+    },
+    {
+        "date": "2025-07-07",
+        "weight": 197.5,
+        "calories": 2050
+    },
+    {
+        "date": "2025-07-08",
+        "weight": 197.5,
+        "calories": 2050
+    },
+    {
+        "date": "2025-07-09",
+        "weight": 197.4,
+        "calories": 2000
+    },
+    {
+        "date": "2025-07-10",
+        "weight": 197.4,
+        "calories": 2000
+    },
+    {
+        "date": "2025-07-11",
+        "weight": 197.1,
+        "calories": 2200
+    },
+    {
+        "date": "2025-07-12",
+        "weight": 197.0,
+        "calories": 2200
+    },
+    {
+        "date": "2025-07-13",
+        "weight": 197.0,
+        "calories": 2200
+    },
+    {
+        "date": "2025-07-14",
+        "weight": 197.0,
+        "calories": 2200
+    },
+    {
+        "date": "2025-07-15",
+        "weight": 196.9,
+        "calories": 2200
+    },
+    {
+        "date": "2025-07-16",
+        "weight": 196.9,
+        "calories": 2200
+    },
+    {
+        "date": "2025-07-17",
+        "weight": 196.8,
+        "calories": 2200
+    },
+    {
+        "date": "2025-07-18",
+        "weight": 196.8,
+        "calories": 2200
+    },
+    {
+        "date": "2025-07-19",
+        "weight": 196.8,
+        "calories": 2200
+    },
+    {
+        "date": "2025-07-20",
+        "weight": 196.8,
+        "calories": 2200
+    }
 ]

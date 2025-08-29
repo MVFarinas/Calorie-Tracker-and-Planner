@@ -1,5 +1,6 @@
 from entry import CaloriesLog, DailyEntry, MaintenanceCalculator, GoalPlanner, EntryValidator, TrendAnalyzer
 from datetime import datetime
+from util.file_loader import FileLoader
 
 '''
 A quick demo script to showcase the functionality of the CaloriesLog, MaintenanceCalculator, TrendAnalyzer, and GoalPlanner classes.
@@ -7,6 +8,19 @@ A quick demo script to showcase the functionality of the CaloriesLog, Maintenanc
 
 if __name__ == "__main__":
     log = CaloriesLog()
+
+    print(f'\n--- File Loading Demo ---')
+    #Swap between different file formats for testing
+    entries = FileLoader.load_file("src/data/sample_data.csv")
+    #entries = FileLoader.load_file("src/data/sample_data.json")
+
+    print("\n--- Loading entries ---")
+    for entry in entries:
+        log.add_entry(entry)
+
+    maintenance = MaintenanceCalculator(log)
+    print(f"\nAverage Daily Calories: {maintenance.maintenance_calculator():.0f}\n")
+    print(f'--- End File Loading Demo ---')
 
     # Example: add entries, but validate each one before inserting
     raw_entries = [
@@ -31,7 +45,7 @@ if __name__ == "__main__":
         DailyEntry(datetime(2025, 7, 19), weight=196.8, calories=2200),
         DailyEntry(datetime(2025, 7, 20), weight=196.8, calories=2200),
     ]
-
+    print(f'\n--- Quick Demo: Adding Entries with Validation ---')
     print("\n--- Loading entries ---")
     for entry in raw_entries:
         if EntryValidator.is_valid(entry):
