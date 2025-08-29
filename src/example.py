@@ -2,7 +2,7 @@ from entry import CaloriesLog, DailyEntry, MaintenanceCalculator, GoalPlanner, E
 from datetime import datetime
 
 '''
-Example Data
+A quick demo script to showcase the functionality of the CaloriesLog, MaintenanceCalculator, TrendAnalyzer, and GoalPlanner classes.
 '''
 
 if __name__ == "__main__":

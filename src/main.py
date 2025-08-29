@@ -1,4 +1,6 @@
-# main program logic
+'''
+A demo script to showcase the functionality of FileLoader class for loading entries from different file formats.
+'''
 
 from util.file_loader import FileLoader
 from entry import CaloriesLog, DailyEntry, MaintenanceCalculator

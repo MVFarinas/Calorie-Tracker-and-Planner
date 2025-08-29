@@ -34,5 +34,4 @@ The project supports importing data from `.csv` and `.json`, performs analysis w
 
 # Usage
 
-- navigate to src/example.py to demonstrate the methods created in entry.py
-- navigate to or src/main.py to demonstrate the function of FileLoader and file persistence
+- navigate to src/example.py to demonstrate the methods created in entry.py as well as the file persistence from file_loader.py
