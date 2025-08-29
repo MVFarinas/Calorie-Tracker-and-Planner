@@ -9,6 +9,19 @@ class DailyEntry:
         self._weight = weight
         self._calories = calories
 
+    #introduce property decorators for getter method
+    @property
+    def date(self):
+        return self._date
+
+    @property
+    def weight(self):
+        return self._weight
+
+    @property
+    def calories(self):
+        return self._calories
+
 class Node:
     def __init__(self, data:DailyEntry):
         self._data = data
