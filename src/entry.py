@@ -67,8 +67,14 @@ class CaloriesLog:
         self._entries = LinkedList()
 
     #pull data from DailyEntry class
-    def add_entry(self, entry: DailyEntry): 
-        self._entries.append(entry)
+    def add_entry(self, entry: DailyEntry) -> bool: 
+        if EntryValidator.is_valid(entry, self._entries):
+            self._entries.append(entry)
+            logging.info(f"Added entry: {entry}")
+            return True
+        else:
+            logging.warning(f"Invalid entry: {entry}")
+            return False
 
     def average_calories(self):
         if self._entries._length == 0:
