@@ -162,7 +162,7 @@ class TrendAnalyzer:
 class EntryValidator:
     @staticmethod
     def is_valid(entry:DailyEntry, existing_entries: LinkedList = None) -> bool:
-        if not (800 <= entry._calories <= 6000):
+        if not (800 <= entry._calories <= 5000):
             logging.warning(f'Calories are out of range: {entry._calories}')
             return False
         
@@ -186,7 +186,7 @@ class EntryValidator:
         return True
 
 class GoalPlanner:
-    def __init__ (self, current_weight, target_weight, time_frame, maintenance_calories):
+    def __init__ (self, current_weight: float, target_weight: float, time_frame: int, maintenance_calories: float):
         self._current_weight = current_weight
         self._target_weight = target_weight
         self._time_frame = time_frame
@@ -210,21 +210,15 @@ class GoalPlanner:
                 weight += daily_deficit / 3500
                 
                 #adjust maintenance slightly based on weight change
+                weight_change_factor = abs(weight - self._current_weight)
+
+                #surplus
                 if daily_deficit < 0:
-                    maintenance -= 5 * (abs(weight - self._current_weight))
+                    maintenance -= 5 * weight_change_factor
                 elif daily_deficit > 0:
-                    maintenance += 5 * (abs(weight - self._current_weight))
-                                        
+                    maintenance += 5 * weight_change_factor
 
             return (weight - self._target_weight) ** 2  # Minimize the squared difference
 
         result = minimize_scalar(objective, bounds=(800, 5000), method='bounded') # realistic calorie bounds
         return result.x
-            
-    # To do:
-    # 1. Fix JSON and CSV data (Downloads)
-        # fix file_loader and entry import
-    # 2. Entry Validator - ensure entry._date is datetime and check weight change for consecutive days (reject large jumps)
-    # 3. Write unit tests for each class and method - particularly TrengAnalyzer and GoalPlanner
-    # 4. Add documentation and comments for clarity
-    # 5. Create a user interface for easier interaction (CLI or GUI)
