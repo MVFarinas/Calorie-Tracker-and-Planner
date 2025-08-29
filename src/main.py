@@ -7,9 +7,9 @@ if __name__ == "__main__":
     log = CaloriesLog()
 
     # Swap between different file formats for testing
-    entries = FileLoader.load_file("data/sample_data.csv")
-    #entries = FileLoader.load_file("data/sample_data.json")
-    #entries = FileLoader.load_file("data/sample_data.txt")
+    entries = FileLoader.load_file("src/data/sample_data.csv")
+    #entries = FileLoader.load_file("src/data/sample_data.json")
+    #entries = FileLoader.load_file("src/data/sample_data.txt")
 
     for entry in entries:
         log.add_entry(entry)
