@@ -76,26 +76,34 @@ class CaloriesLog:
             logging.warning(f"Invalid entry: {entry}")
             return False
 
+    # Calculate average calories using all entries
     def average_calories(self):
-        if self._entries._length == 0:
+        if len(self._entries) == 0:
             return 0
-        return sum(entry._calories for entry in self._entries) / self._entries._length
-    
+        return sum(entry._calories for entry in self._entries) / len(self._entries)
+
+    # Calculate weight difference (start - end)
     def weight_difference(self):
-        if self._entries._length < 2: #need a head and tail to calculate difference
+        if len(self._entries) < 2: #need a head and tail to calculate difference
             return 0
         return self._entries._head._data._weight - self._entries._tail._data._weight #start weight - end weight
-    
-    def days_tracked(self):
-        if self._entries._length < 2: #need a head and tail to calculate days
-            return 0
+
+    # Calculate days tracked
+    def days_tracked(self): 
+        if len(self._entries) < 2: #need a head and tail to calculate days
+            return len(self._entries)
         return (self._entries._tail._data._date - self._entries._head._data._date).days + 1
 
-    def __iter__(self): # allow iteration over the log
+    # Allow iteration over the log
+    def __iter__(self): 
         current = self._entries._head
         while current:
             yield current._data
             current = current._next
+    
+    # Get List of all entries
+    def get_entries_list(self) -> list[DailyEntry]:
+        return list(self._entries)
 
 class MaintenanceCalculator:
     def __init__(self, calories_log: CaloriesLog):
