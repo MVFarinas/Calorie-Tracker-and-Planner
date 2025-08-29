@@ -16,8 +16,4 @@ if __name__ == "__main__":
 
     maintenance = MaintenanceCalculator(log)
     print(f"Average Daily Calories: {maintenance.maintenance_calculator():.0f}")
-
-    #To do:
-    # 1) Add Goal Planner and Trend Analyzer data to main.py
-    # 2) Add error handling and logging for each file type
     

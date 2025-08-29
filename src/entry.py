@@ -5,7 +5,6 @@ import logging
 # Configure root logger ; see info (add entry), warning -- good for debugging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-
 class DailyEntry:
     def __init__(self, date: datetime, weight: float, calories: int):
         if not isinstance(date, datetime):

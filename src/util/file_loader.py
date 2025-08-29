@@ -5,7 +5,6 @@ from datetime import datetime
 from entry import DailyEntry
 
 class FileLoader:
-    
     def load_file(filepath: str):
         ext = Path(filepath).suffix.lower()
         if ext == '.csv':

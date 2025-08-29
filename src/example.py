@@ -58,8 +58,8 @@ if __name__ == "__main__":
 
     planner = GoalPlanner(
         current_weight = 197.4,
-        target_weight = 190,
-        time_frame = 30, 
+        target_weight = 215,
+        time_frame = 90, 
         maintenance_calories = maintenance
     )
 
