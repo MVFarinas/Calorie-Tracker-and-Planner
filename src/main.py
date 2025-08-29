@@ -11,8 +11,9 @@ if __name__ == "__main__":
     #entries = FileLoader.load_file("src/data/sample_data.json")
     #entries = FileLoader.load_file("src/data/sample_data.txt")
 
+    print("\n--- Loading entries ---")
     for entry in entries:
         log.add_entry(entry)
 
     maintenance = MaintenanceCalculator(log)
-    print(f"Average Daily Calories: {maintenance.maintenance_calculator():.0f}")
+    print(f"\nAverage Daily Calories: {maintenance.maintenance_calculator():.0f}\n")
