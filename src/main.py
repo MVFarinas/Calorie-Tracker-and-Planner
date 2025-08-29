@@ -19,7 +19,7 @@ def main():
         print("7. Run tests (demo data)")
         print("8. Exit")
 
-        choice = input("Choose an option (1–8): ").strip()
+        choice = input("Choose an option (1 - 8): ").strip()
 
         if choice == "1":
             # Manual entry
@@ -29,7 +29,7 @@ def main():
             date = datetime.strptime(date_str, "%Y-%m-%d")
             entry = DailyEntry(date, weight, calories)
             log.add_entry(entry)
-            print("✅ Entry added.")
+            print("\nEntry added.")
 
         elif choice == "2":
             # Load from file
@@ -38,9 +38,9 @@ def main():
                 entries = FileLoader.load_file(filepath)
                 for e in entries:
                     log.add_entry(e)
-                print(f"✅ Loaded {len(entries)} entries from {filepath}")
+                print(f"\nLoaded {len(entries)} entries from {filepath}")
             except Exception as e:
-                print(f"❌ Error loading file: {e}")
+                print(f"\nError loading file: {e}")
 
         elif choice == "3":
             # Summary
@@ -76,7 +76,7 @@ def main():
                 print(f"\nMoving averages for {field} (window={window}):")
                 print([round(val, 2) for val in averages])
             else:
-                print("❌ Not enough data for moving average.")
+                print("\nNot enough data for moving average.")
 
         elif choice == "7":
             # Demo test mode
@@ -89,14 +89,14 @@ def main():
             ]
             for e in demo_entries:
                 log.add_entry(e)
-            print("✅ Demo entries added. Try viewing summary or calculating maintenance.")
+            print("Demo entries added. Try viewing summary or calculating maintenance.")
 
         elif choice == "8":
-            print("👋 Goodbye!")
+            print("\nGoodbye!")
             break
 
         else:
-            print("❌ Invalid choice. Please select a number 1–8.")
+            print("\nInvalid choice. Please select a number 1 - 8.")
 
 if __name__ == "__main__":
     main()
