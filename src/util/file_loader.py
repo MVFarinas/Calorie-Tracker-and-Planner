@@ -2,7 +2,7 @@ import csv
 import json
 from pathlib import Path
 from datetime import datetime
-from ..entry import DailyEntry, CaloriesLog, MaintenanceCalculator
+from ..entry import DailyEntry
 
 class FileLoader:
     @staticmethod
