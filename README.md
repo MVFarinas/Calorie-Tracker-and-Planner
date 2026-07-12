@@ -40,6 +40,13 @@ Run both entry points as modules from the repository root:
 - `python -m src.example` runs a demo of the methods in `entry.py` and the file loading in `file_loader.py`
 - `python -m src.main` launches the CLI to input user data, load file data, and analyze it
 
+# Running Tests
+The project uses `pytest`. Install the development dependencies and run the suite from the repository root:
+```
+pip install -r requirements-dev.txt
+pytest
+```
+
 # Why I'm Doing This Project
 I wanted to combine my interest in fitness and nutrition with my growing skills in software engineering. Many commercial fitness apps are closed-source so users never see how calculations are made. 
 
