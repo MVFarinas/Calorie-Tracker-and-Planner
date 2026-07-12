@@ -1,6 +1,6 @@
 from pathlib import Path
 from datetime import datetime
-from .entry import CaloriesLog, DailyEntry, MaintenanceCalculator, GoalPlanner, EntryValidator, TrendAnalyzer
+from .entry import CaloriesLog, DailyEntry, MaintenanceCalculator, GoalPlanner, TrendAnalyzer
 from .util.file_loader import FileLoader
 
 DATA_DIR = Path(__file__).parent / "data"
@@ -50,11 +50,10 @@ if __name__ == "__main__":
     ]
     print(f'\n--- Quick Demo: Adding Entries with Validation ---')
     print("\n--- Loading entries ---")
+    # add_entry validates internally and returns False when an entry is rejected.
     for entry in raw_entries:
-        if EntryValidator.is_valid(entry):
-            log.add_entry(entry)
-        else:
-            print(f"Invalid entry skipped: {entry._date}, {entry._weight} lbs, {entry._calories} cal")
+        if not log.add_entry(entry):
+            print(f"Invalid entry skipped: {entry}")
 
     calculator = MaintenanceCalculator(log)
     maintenance = calculator.maintenance_calculator()
@@ -71,7 +70,7 @@ if __name__ == "__main__":
     print(f"Weight trend: {analyzer.weight_trend()}")
 
     planner = GoalPlanner(
-        current_weight = log.get_entries_list()[-1]._weight,
+        current_weight = log.last().weight,
         target_weight = 215,
         time_frame = 30, 
         maintenance_calories = maintenance

@@ -1,5 +1,5 @@
-from scipy.optimize import minimize, minimize_scalar
-from datetime import datetime, timedelta
+from scipy.optimize import minimize_scalar
+from datetime import datetime
 import logging
 
 # Configure root logger ; see info (add entry), warning -- good for debugging
@@ -60,21 +60,21 @@ class LinkedList:
         if not self._head:
             self._head = new_node
             self._tail = new_node
-        elif data._date < self._head._data._date:
+        elif data.date < self._head._data.date:
             new_node._next = self._head
             self._head = new_node
-        elif data._date >= self._tail._data._date:
+        elif data.date >= self._tail._data.date:
             self._tail._next = new_node
             self._tail = new_node
         else:
             current = self._head
-            while current._next and current._next._data._date <= data._date:
+            while current._next and current._next._data.date <= data.date:
                 current = current._next
             new_node._next = current._next
             current._next = new_node
         self._length += 1
 
-    def __iter__(self): 
+    def __iter__(self):
         current = self._head
         while current:
             yield current._data
@@ -82,6 +82,14 @@ class LinkedList:
 
     def __len__(self) -> int:
         return self._length
+
+    @property
+    def first(self) -> DailyEntry:
+        return self._head._data if self._head else None
+
+    @property
+    def last(self) -> DailyEntry:
+        return self._tail._data if self._tail else None
 
 class CaloriesLog:
     def __init__(self):
@@ -101,27 +109,34 @@ class CaloriesLog:
     def average_calories(self):
         if len(self._entries) == 0:
             return None
-        return sum(entry._calories for entry in self._entries) / len(self._entries)
+        return sum(entry.calories for entry in self._entries) / len(self._entries)
 
     # Calculate weight difference (start - end); None when there are fewer than 2 entries
     def weight_difference(self):
         if len(self._entries) < 2: #need a head and tail to calculate difference
             return None
-        return self._entries._head._data._weight - self._entries._tail._data._weight #start weight - end weight
+        return self._entries.first.weight - self._entries.last.weight #start weight - end weight
 
     # Calculate days tracked
-    def days_tracked(self): 
+    def days_tracked(self):
         if len(self._entries) < 2: #need a head and tail to calculate days
             return len(self._entries)
-        return (self._entries._tail._data._date - self._entries._head._data._date).days + 1
+        return (self._entries.last.date - self._entries.first.date).days + 1
+
+    # First (earliest) and last (latest) entries, or None when the log is empty
+    def first(self) -> DailyEntry:
+        return self._entries.first
+
+    def last(self) -> DailyEntry:
+        return self._entries.last
+
+    def __len__(self) -> int:
+        return len(self._entries)
 
     # Allow iteration over the log
-    def __iter__(self): 
-        current = self._entries._head
-        while current:
-            yield current._data
-            current = current._next
-    
+    def __iter__(self):
+        yield from self._entries
+
     # Get List of all entries
     def get_entries_list(self) -> list[DailyEntry]:
         return list(self._entries)
@@ -154,9 +169,9 @@ class TrendAnalyzer:
             raise ValueError("Field must be 'calories' or 'weight'")
         
         if field == "calories":
-            values = [entry._calories for entry in self._log]
+            values = [entry.calories for entry in self._log]
         else:
-            values = [entry._weight for entry in self._log]
+            values = [entry.weight for entry in self._log]
 
         if len(values) < window_size or window_size <= 0: # Check if the window size is valid
             return []
@@ -171,7 +186,7 @@ class TrendAnalyzer:
         return moving_averages
     
     def weight_trend(self) -> str:
-        if len(self._log._entries) < 2:
+        if len(self._log) < 2:
             return "Insufficient data"
         
         weight_diff = self._log.weight_difference()
@@ -189,27 +204,27 @@ class TrendAnalyzer:
 class EntryValidator:
     @staticmethod
     def is_valid(entry:DailyEntry, existing_entries: LinkedList = None) -> bool:
-        if not (800 <= entry._calories <= 5000):
-            logging.warning(f'Calories are out of range: {entry._calories}')
+        if not (800 <= entry.calories <= 5000):
+            logging.warning(f'Calories are out of range: {entry.calories}')
             return False
-        
-        if not (50 <= entry._weight <= 600):
-            logging.warning(f'Weight is out of range: {entry._weight}')
+
+        if not (50 <= entry.weight <= 600):
+            logging.warning(f'Weight is out of range: {entry.weight}')
             return False
-        
-        if not isinstance(entry._date, datetime):
-            logging.warning(f'Date is not a datetime object: {entry._date}')
+
+        if not isinstance(entry.date, datetime):
+            logging.warning(f'Date is not a datetime object: {entry.date}')
             return False
-        
+
         if existing_entries and len(existing_entries) > 0:
-            last_entry = existing_entries._tail._data
-            weight_change = abs(entry._weight - last_entry._weight)
-            days_diff = (entry._date - last_entry._date).days
+            last_entry = existing_entries.last
+            weight_change = abs(entry.weight - last_entry.weight)
+            days_diff = (entry.date - last_entry.date).days
 
             if days_diff == 1 and weight_change > 5:
-                logging.warning(f'Weight change too large for consecutive days: {entry._weight:.1f} lbs in 1 day')
+                logging.warning(f'Weight change too large for consecutive days: {entry.weight:.1f} lbs in 1 day')
                 return False
-        
+
         return True
 
 class GoalPlanner:
