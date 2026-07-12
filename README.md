@@ -22,12 +22,17 @@ The project supports importing data from `.csv` and `.json`, performs analysis w
   - Algebraic approach (linear math)
   - Optimized approach using scipy.optimize (nonlinear metabolic adaptation model)
 
-- File Persistence:
+- File Import (read-only):
   - Import data from `.csv`, `.json`, and `.txt` files using `file_loader.py`
 
 # Requirements
 - Python3
 - SciPy
+
+Install dependencies with:
+```
+pip install -r requirements.txt
+```
 
 # Usage
 - navigate to src/example.py to demonstrate the methods created in entry.py as well as the file persistence from file_loader.py
