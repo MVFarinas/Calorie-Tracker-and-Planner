@@ -44,16 +44,21 @@ def main():
 
         elif choice == "3":
             # Summary
+            weight_change = log.weight_difference()
+            avg_calories = log.average_calories()
             print("\n--- Summary ---")
             print(f"Days tracked: {log.days_tracked()}")
-            print(f"Weight change: {log.weight_difference():.2f} lbs")
-            print(f"Average calories: {log.average_calories():.0f}")
+            print(f"Weight change: {weight_change:.2f} lbs" if weight_change is not None else "Weight change: N/A (need at least 2 entries)")
+            print(f"Average calories: {avg_calories:.0f}" if avg_calories is not None else "Average calories: N/A (no entries)")
 
         elif choice == "4":
             # Maintenance calories
             calculator = MaintenanceCalculator(log)
             maintenance = calculator.maintenance_calculator()
-            print(f"\nEstimated Maintenance Calories: {maintenance:.0f} per day")
+            if maintenance is None:
+                print("\nNot enough data to estimate maintenance calories (need at least 2 entries).")
+            else:
+                print(f"\nEstimated Maintenance Calories: {maintenance:.0f} per day")
 
         elif choice == "5":
             # Goal planner
@@ -62,9 +67,12 @@ def main():
             time_frame = int(input("Enter time frame (days): ").strip())
             calculator = MaintenanceCalculator(log)
             maintenance = calculator.maintenance_calculator()
-            planner = GoalPlanner(current_weight, target_weight, time_frame, maintenance)
-            print(f"\nRecommended Intake (Algebraic): {planner.recommend_calories():.0f}")
-            print(f"Recommended Intake (Optimized): {planner.recommend_calories_optimized():.0f}")
+            if maintenance is None:
+                print("\nNot enough data to plan a goal yet (need at least 2 entries to estimate maintenance).")
+            else:
+                planner = GoalPlanner(current_weight, target_weight, time_frame, maintenance)
+                print(f"\nRecommended Intake (Algebraic): {planner.recommend_calories():.0f}")
+                print(f"Recommended Intake (Optimized): {planner.recommend_calories_optimized():.0f}")
 
         elif choice == "6":
             # Trend analysis
