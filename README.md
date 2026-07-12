@@ -35,8 +35,10 @@ pip install -r requirements.txt
 ```
 
 # Usage
-- navigate to src/example.py to demonstrate the methods created in entry.py as well as the file persistence from file_loader.py
-- navigate to src/main.py to utilize the CLI and input user data, load file data, and analyze the desired data
+Run both entry points as modules from the repository root:
+
+- `python -m src.example` runs a demo of the methods in `entry.py` and the file loading in `file_loader.py`
+- `python -m src.main` launches the CLI to input user data, load file data, and analyze it
 
 # Why I'm Doing This Project
 I wanted to combine my interest in fitness and nutrition with my growing skills in software engineering. Many commercial fitness apps are closed-source so users never see how calculations are made. 

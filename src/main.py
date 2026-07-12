@@ -1,7 +1,7 @@
 # main program logic with CLI
 
-from util.file_loader import FileLoader
-from entry import CaloriesLog, DailyEntry, MaintenanceCalculator, GoalPlanner, EntryValidator, TrendAnalyzer
+from .util.file_loader import FileLoader
+from .entry import CaloriesLog, DailyEntry, MaintenanceCalculator, GoalPlanner, EntryValidator, TrendAnalyzer
 import logging 
 from datetime import datetime
 
