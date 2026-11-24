@@ -137,7 +137,7 @@ ruff check .
 ruff format --check .
 mypy
 ```
-Their settings live in `pyproject.toml`. `ruff format .` reformats the code, and `ruff check --fix .` fixes the lint findings it can.
+Their settings live in `pyproject.toml`. `ruff format .` reformats the code, and `ruff check --fix .` fixes the lint findings it can. The same checks run in GitHub Actions (`.github/workflows/ci.yml`) on every push and pull request, on Python 3.10 to 3.13.
 
 # Why I'm Doing This Project
 I wanted to combine my interest in fitness and nutrition with my growing skills in software engineering. Many commercial fitness apps are closed-source so users never see how calculations are made. 
