@@ -392,7 +392,7 @@ def main(data_file=None, units=None) -> int:
             elif choice == "4":
                 # Maintenance calories
                 calculator = MaintenanceCalculator(log)
-                maintenance = calculator.maintenance_calculator()
+                maintenance = calculator.estimate()
                 if maintenance is None:
                     print("\nNot enough data to estimate maintenance calories (need at least 2 entries).")
                 else:
@@ -401,7 +401,7 @@ def main(data_file=None, units=None) -> int:
             elif choice == "5":
                 # Goal planner
                 calculator = MaintenanceCalculator(log)
-                maintenance = calculator.maintenance_calculator()
+                maintenance = calculator.estimate()
                 if maintenance is None:
                     print("\nNot enough data to plan a goal yet (need at least 2 entries to estimate maintenance).")
                 else:

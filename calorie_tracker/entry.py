@@ -23,6 +23,15 @@ ADAPT_KCAL_PER_LB = 10
 # bigger swing is almost certainly a typo or a unit mix-up.
 MAX_LBS_PER_DAY = 5
 
+# Plausible daily intake for a logged entry; EntryValidator rejects anything
+# outside it. MAX_DAILY_CALORIES also caps GoalPlanner's recommendations.
+MIN_LOGGED_CALORIES = 800
+MAX_DAILY_CALORIES = 5000
+
+# Plausible body weight (lbs) for a logged entry.
+MIN_WEIGHT_LBS = 50
+MAX_WEIGHT_LBS = 600
+
 # Health guardrails for goal planning (common general guidelines, not medical
 # advice): recommendations never go below MIN_SAFE_CALORIES, and a plan that
 # loses more than MAX_SAFE_LBS_PER_WEEK is flagged by GoalPlanner.safety_warnings.
@@ -32,6 +41,9 @@ MAX_SAFE_LBS_PER_WEEK = 2
 # Smoothing factor for TrendAnalyzer.trend_weights: each day the trend moves this
 # fraction of the way toward the scale reading (the Hacker's Diet uses 0.1).
 TREND_ALPHA = 0.1
+
+# TrendAnalyzer.weight_trend calls a slope smaller than this (lbs/day) stable.
+STABLE_LBS_PER_DAY = 0.05
 
 # How far (lbs) the optimized plan may miss the target before it is reported
 # as unreachable within GoalPlanner.CALORIE_BOUNDS.
@@ -250,10 +262,12 @@ class CaloriesLog:
         return statistics.linear_regression(days, weights).slope
 
     # First (earliest) and last (latest) entries, or None when the log is empty
-    def first(self) -> DailyEntry:
+    @property
+    def first(self) -> DailyEntry | None:
         return self._entries.first
 
-    def last(self) -> DailyEntry:
+    @property
+    def last(self) -> DailyEntry | None:
         return self._entries.last
 
     def __len__(self) -> int:
@@ -271,7 +285,8 @@ class MaintenanceCalculator:
     def __init__(self, calories_log: CaloriesLog):
         self._log = calories_log
 
-    def maintenance_calculator(self):
+    def estimate(self) -> float | None:
+        """Estimated maintenance calories per day, or None with fewer than two distinct dates."""
         avg_cals = self._log.average_calories()
         slope = self._log.weight_slope()
 
@@ -338,7 +353,7 @@ class TrendAnalyzer:
         shown = abs(from_lbs(rate, unit))
 
         # The threshold is in lbs/day, like the slope; only the display is converted.
-        if abs(rate) < 0.05:
+        if abs(rate) < STABLE_LBS_PER_DAY:
             return f"Stable weight (~{shown:.2f} {unit}/day over {days} days)"
         elif rate < 0:
             return f"Losing weight: {shown:.2f} {unit}/day average"
@@ -346,8 +361,8 @@ class TrendAnalyzer:
             return f"Gaining weight: {shown:.2f} {unit}/day average"
     
 class EntryValidator:
-    CALORIE_RANGE = (800, 5000)
-    WEIGHT_RANGE = (50, 600)
+    CALORIE_RANGE = (MIN_LOGGED_CALORIES, MAX_DAILY_CALORIES)
+    WEIGHT_RANGE = (MIN_WEIGHT_LBS, MAX_WEIGHT_LBS)
 
     # Weight checks allow this much slack (about 5 mg) so a weight that sits
     # exactly on a limit still passes after a kg round trip, e.g. an export in
@@ -397,7 +412,7 @@ class EntryValidator:
 
 class GoalPlanner:
     # Daily intake range for recommendations; the floor is the safety minimum.
-    CALORIE_BOUNDS = (MIN_SAFE_CALORIES, 5000)
+    CALORIE_BOUNDS = (MIN_SAFE_CALORIES, MAX_DAILY_CALORIES)
 
     # Safety margin added to every comparison below so tiny floating-point
     # errors can't flip a plan that sits exactly on a limit.
@@ -418,6 +433,22 @@ class GoalPlanner:
         self._target_weight = target_weight
         self._time_frame = time_frame
         self._maintenance = maintenance_calories
+
+    @property
+    def current_weight(self) -> float:
+        return self._current_weight
+
+    @property
+    def target_weight(self) -> float:
+        return self._target_weight
+
+    @property
+    def time_frame(self) -> int:
+        return self._time_frame
+
+    @property
+    def maintenance_calories(self) -> float:
+        return self._maintenance
 
     def recommend_calories(self):
         # Constant deficit or surplus, kept within CALORIE_BOUNDS (never below the safe minimum).

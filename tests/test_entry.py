@@ -8,6 +8,7 @@ import pytest
 from calorie_tracker.entry import (
     ADAPT_KCAL_PER_LB,
     KCAL_PER_LB,
+    MAX_DAILY_CALORIES,
     MAX_SAFE_LBS_PER_WEEK,
     MIN_SAFE_CALORIES,
     CaloriesLog,
@@ -48,13 +49,13 @@ def test_empty_log_returns_none_not_zero():
     log = CaloriesLog()
     assert log.average_calories() is None
     assert log.weight_difference() is None
-    assert MaintenanceCalculator(log).maintenance_calculator() is None
+    assert MaintenanceCalculator(log).estimate() is None
 
 
 def test_single_entry_has_no_maintenance_estimate():
     log = make_log([(1, 200, 2200)])
     assert log.weight_difference() is None
-    assert MaintenanceCalculator(log).maintenance_calculator() is None
+    assert MaintenanceCalculator(log).estimate() is None
 
 
 # --- Duplicate dates ------------------------------------------------------
@@ -64,7 +65,7 @@ def test_duplicate_date_is_rejected():
     assert log.add_entry(DailyEntry(datetime(2025, 7, 1), 200, 2200)) is True
     assert log.add_entry(DailyEntry(datetime(2025, 7, 1), 199, 1800)) is False
     assert len(log) == 1
-    assert log.first().calories == 2200  # original entry kept
+    assert log.first.calories == 2200  # original entry kept
 
 
 def test_duplicate_date_with_different_time_is_rejected():
@@ -76,7 +77,7 @@ def test_duplicate_date_with_different_time_is_rejected():
 def test_duplicate_dates_no_longer_produce_negative_maintenance():
     log = make_log([(1, 200.0, 2000), (1, 201.0, 2000), (2, 200.0, 2000)])
     assert len(log) == 2
-    assert MaintenanceCalculator(log).maintenance_calculator() == pytest.approx(2000)
+    assert MaintenanceCalculator(log).estimate() == pytest.approx(2000)
 
 
 # --- Maintenance math -----------------------------------------------------
@@ -84,7 +85,7 @@ def test_duplicate_dates_no_longer_produce_negative_maintenance():
 def test_maintenance_exceeds_intake_when_weight_is_lost():
     # Ate 2000/day and lost weight => maintenance must be above intake.
     log = make_log([(1, 200.0, 2000), (11, 199.0, 2000)])
-    maintenance = MaintenanceCalculator(log).maintenance_calculator()
+    maintenance = MaintenanceCalculator(log).estimate()
     # Weigh-ins 10 days apart: -1 lb / 10 days = -0.1 lb/day => 2000 + 0.1*3500
     assert maintenance == pytest.approx(2350)
     assert maintenance > log.average_calories()
@@ -92,7 +93,7 @@ def test_maintenance_exceeds_intake_when_weight_is_lost():
 
 def test_maintenance_below_intake_when_weight_is_gained():
     log = make_log([(1, 200.0, 3000), (11, 202.0, 3000)])
-    maintenance = MaintenanceCalculator(log).maintenance_calculator()
+    maintenance = MaintenanceCalculator(log).estimate()
     # +2 lb over 10 days = +0.2 lb/day => 3000 - 0.2*3500
     assert maintenance == pytest.approx(2300)
     assert maintenance < log.average_calories()
@@ -103,7 +104,7 @@ def test_maintenance_uses_regression_slope_over_all_weigh_ins():
     rows = [(day, 200.0 - 0.1 * (day - 1), 2000) for day in range(1, 11)]
     log = make_log(rows)
     assert log.weight_slope() == pytest.approx(-0.1)
-    assert MaintenanceCalculator(log).maintenance_calculator() == pytest.approx(2350)
+    assert MaintenanceCalculator(log).estimate() == pytest.approx(2350)
 
 
 def test_single_noisy_weigh_in_does_not_dominate():
@@ -115,7 +116,7 @@ def test_single_noisy_weigh_in_does_not_dominate():
     log = make_log(rows)
     assert log.weight_difference() < 0  # endpoints alone suggest gaining
 
-    maintenance = MaintenanceCalculator(log).maintenance_calculator()
+    maintenance = MaintenanceCalculator(log).estimate()
     assert maintenance > log.average_calories()  # still correctly reads as losing
     assert maintenance == pytest.approx(2350, abs=150)
 
@@ -561,7 +562,7 @@ def test_linked_list_append_after_removing_tail():
     log.remove_entry(datetime(2025, 7, 2))
     log.add_entry(DailyEntry(datetime(2025, 7, 3), 199.0, 2200))
     assert [e.date.day for e in log] == [1, 3]
-    assert log.last().date.day == 3
+    assert log.last.date.day == 3
 
 
 def test_remove_entry_by_date():
@@ -637,7 +638,7 @@ def test_update_rejects_bad_types_without_changing_log():
     log = make_log([(1, 200, 2200)])
     with pytest.raises(TypeError):
         log.update_entry(datetime(2025, 7, 1), 200, 2200.5)
-    assert log.first().calories == 2200
+    assert log.first.calories == 2200
 
 
 # --- Smoothed trend weight (EWMA) -----------------------------------------
@@ -687,3 +688,24 @@ def test_safety_warnings_in_kg():
     assert "lbs" not in " ".join(warnings)
     # The checks themselves don't depend on the display unit.
     assert len(warnings) == len(planner.safety_warnings())
+
+
+# --- Public API -------------------------------------------------------------
+
+def test_log_first_and_last_are_properties_like_the_linked_list():
+    empty = CaloriesLog()
+    assert empty.first is None and empty.last is None
+    log = make_log([(3, 199, 2000), (1, 200, 2200), (2, 199.5, 2100)])
+    assert log.first is log._entries.first and log.first.date.day == 1
+    assert log.last is log._entries.last and log.last.date.day == 3
+
+
+def test_goal_planner_exposes_its_inputs():
+    planner = GoalPlanner(200, 190, 60, 2500)
+    assert (planner.current_weight, planner.target_weight, planner.time_frame,
+            planner.maintenance_calories) == (200, 190, 60, 2500)
+
+
+def test_daily_calorie_cap_is_shared_by_validation_and_planning():
+    assert EntryValidator.CALORIE_RANGE[1] == GoalPlanner.CALORIE_BOUNDS[1] == MAX_DAILY_CALORIES
+    assert GoalPlanner.CALORIE_BOUNDS[0] == MIN_SAFE_CALORIES

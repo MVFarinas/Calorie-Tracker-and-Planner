@@ -40,7 +40,7 @@ if __name__ == "__main__":
             print(f"Invalid entry skipped: {entry}: {log.rejection_reason(entry)}")
 
     calculator = MaintenanceCalculator(log)
-    maintenance = calculator.maintenance_calculator()
+    maintenance = calculator.estimate()
     avg_cals = log.average_calories()
     weight_diff = log.weight_difference()
     days_tracked = log.days_tracked()
@@ -55,11 +55,11 @@ if __name__ == "__main__":
 
     # Smoothed trend weight (exponentially weighted moving average) vs. the scale
     trend = analyzer.trend_weights()
-    print(f"Trend weight: {trend[-1]:.1f} lbs (scale: {log.last().weight} lbs)\n")
+    print(f"Trend weight: {trend[-1]:.1f} lbs (scale: {log.last.weight} lbs)\n")
     print(render_weight_chart([e.date for e in log], [e.weight for e in log], trend))
 
     planner = GoalPlanner(
-        current_weight = log.last().weight,
+        current_weight = log.last.weight,
         target_weight = 190,
         time_frame = 60,
         maintenance_calories = maintenance
@@ -68,7 +68,7 @@ if __name__ == "__main__":
     intake_reccomendation = planner.recommend_calories()
     intake_optimization = planner.recommend_calories_optimized()
     print(f'\n--- Goal Planning ---')
-    print(f'To achieve a weight of {planner._target_weight} lbs in {planner._time_frame} days:')
+    print(f'To achieve a weight of {planner.target_weight} lbs in {planner.time_frame} days:')
     print(f'Your Recommended Daily Caloric Intake (Algebraic): {intake_reccomendation:.0f} calories/day')
     print(f'Your Optimized Daily Caloric Intake (Nonlinear): {intake_optimization:.0f} calories/day')
     for warning in planner.safety_warnings():
