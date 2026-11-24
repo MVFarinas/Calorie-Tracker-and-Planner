@@ -130,7 +130,9 @@ def _write_atomic(path, write, make_parents: bool = True) -> None:
 EXPORT_FORMATS = (".csv", ".json")
 
 # Decimal places kept when exporting in kg: well below a gram, and enough to
-# turn 90.49999999999999 back into 90.5.
+# turn 90.49999999999999 back into 90.5. The few millionths of a pound this
+# can add on import are within EntryValidator's weight tolerance, so entries on
+# a validation limit are still accepted when the export is read back.
 KG_EXPORT_DECIMALS = 6
 
 

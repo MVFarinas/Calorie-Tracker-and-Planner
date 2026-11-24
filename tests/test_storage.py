@@ -297,6 +297,26 @@ def test_export_in_kg_round_trips(tmp_path, name):
     assert all(reloaded.add_entry(e) for e in loaded)
 
 
+@pytest.mark.parametrize("name", ["out.csv", "out.json"])
+def test_export_in_kg_keeps_entries_on_validation_limits(tmp_path, name):
+    # Exact 5 lbs/day steps and the 50/600 lb range limits must survive the
+    # rounding of kg values and still be accepted when imported again.
+    low = [50.0, 55.0, 60.0, 55.0, 50.0]
+    high = [575.0, 580.0, 585.0, 590.0, 595.0, 600.0, 595.0]
+    climbing = [150.0 + 5 * i for i in range(20)]
+    for weights in (low, high, climbing):
+        source = [(day, weight, 2200) for day, weight in enumerate(weights, start=1)]
+        log = make_log(source)
+        path = tmp_path / name
+        export_log(log, path, unit="kg")
+        reloaded = CaloriesLog()
+        loaded = FileLoader.load_file(str(path))
+        rejected = [(format_date(e.date), reloaded.rejection_reason(e))
+                    for e in loaded if not reloaded.add_entry(e)]
+        assert rejected == []
+        assert len(reloaded) == len(source)
+
+
 def test_export_csv_layout_names_the_unit(tmp_path):
     path = tmp_path / "out.csv"
     export_log(make_log([(1, 200.0, 2200)]), path, unit="kg")

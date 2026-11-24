@@ -411,6 +411,20 @@ def test_validator_rejects_large_one_day_swing():
     assert len(log) == 1
 
 
+@pytest.mark.parametrize("weight,valid", [
+    (50 - 1e-6, True), (600 + 1e-6, True),       # conversion noise on a limit
+    (50 - 1e-3, False), (600 + 1e-3, False),
+])
+def test_validator_weight_range_tolerance(weight, valid):
+    assert EntryValidator.is_valid(DailyEntry(datetime(2025, 7, 1), weight, 2200)) is valid
+
+
+@pytest.mark.parametrize("step,valid", [(5 + 2e-6, True), (5.001, False)])
+def test_validator_daily_change_tolerance(step, valid):
+    log = make_log([(1, 200, 2200)])
+    assert log.add_entry(DailyEntry(datetime(2025, 7, 2), 200 + step, 2200)) is valid
+
+
 def test_validator_rejects_back_filled_outlier():
     # Day 2 is inserted between two 200 lb days; it is not the latest entry,
     # but a 30 lb jump from both neighbours must still be rejected.

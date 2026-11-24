@@ -349,6 +349,11 @@ class EntryValidator:
     CALORIE_RANGE = (800, 5000)
     WEIGHT_RANGE = (50, 600)
 
+    # Weight checks allow this much slack (about 5 mg) so a weight that sits
+    # exactly on a limit still passes after a kg round trip, e.g. an export in
+    # kg read back, which can move it by a few millionths of a pound.
+    _WEIGHT_TOLERANCE_LBS = 1e-5
+
     @staticmethod
     def is_valid(entry: DailyEntry, existing_entries: LinkedList = None) -> bool:
         return EntryValidator.rejection_reason(entry, existing_entries) is None
@@ -361,7 +366,8 @@ class EntryValidator:
             return f"calories out of range ({low}-{high})"
 
         low, high = EntryValidator.WEIGHT_RANGE
-        if not (low <= entry.weight <= high):
+        tolerance = EntryValidator._WEIGHT_TOLERANCE_LBS
+        if not (low - tolerance <= entry.weight <= high + tolerance):
             return f"weight out of range ({low}-{high} lbs)"
 
         if not isinstance(entry.date, datetime):
@@ -383,7 +389,7 @@ class EntryValidator:
             if neighbour is None:
                 continue
             day_gap = max(abs((day - neighbour.date.date()).days), 1)
-            if abs(entry.weight - neighbour.weight) > MAX_LBS_PER_DAY * day_gap:
+            if abs(entry.weight - neighbour.weight) > MAX_LBS_PER_DAY * day_gap + tolerance:
                 return (f"weight change too large compared with a nearby entry "
                         f"(more than {MAX_LBS_PER_DAY} lbs per day)")
 
