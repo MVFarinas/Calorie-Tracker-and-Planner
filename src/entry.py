@@ -1,9 +1,22 @@
 from scipy.optimize import minimize_scalar
 from datetime import datetime
 import logging
+import statistics
 
 # Configure root logger ; see info (add entry), warning -- good for debugging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
+# Energy content of one pound of body weight (standard approximation).
+KCAL_PER_LB = 3500
+
+# Metabolic adaptation used by GoalPlanner.recommend_calories_optimized:
+# maintenance shifts by this many kcal/day per lb of weight lost (or gained)
+# relative to the starting weight.
+ADAPT_KCAL_PER_LB = 10
+
+# How far (lbs) the optimized plan may miss the target before it is reported
+# as unreachable within GoalPlanner.CALORIE_BOUNDS.
+UNREACHABLE_TOLERANCE_LBS = 0.1
 
 class DailyEntry:
     def __init__(self, date: datetime, weight: float, calories: int):
@@ -27,7 +40,7 @@ class DailyEntry:
         return self._calories
     
     def __str__(self) -> str:
-        return f'DailyEntry({self._date.strftime('%Y-%m-%d')}, {self._weight}lbs, {self._calories}cals)'
+        return f"DailyEntry({self._date.strftime('%Y-%m-%d')}, {self._weight}lbs, {self._calories}cals)"
 
 class Node:
     def __init__(self, data: DailyEntry):
@@ -94,11 +107,17 @@ class LinkedList:
 class CaloriesLog:
     def __init__(self):
         self._entries = LinkedList()
+        self._dates = set()  # calendar days already logged, for duplicate detection
 
     #pull data from DailyEntry class
     def add_entry(self, entry: DailyEntry) -> bool: 
+        # One entry per calendar day; a second one would skew every estimate.
+        if entry.date.date() in self._dates:
+            logging.warning(f"Duplicate date, entry rejected: {entry}")
+            return False
         if EntryValidator.is_valid(entry, self._entries):
             self._entries.insert_sorted(entry)
+            self._dates.add(entry.date.date())
             logging.info(f"Added entry: {entry}")
             return True
         else:
@@ -122,6 +141,19 @@ class CaloriesLog:
         if len(self._entries) < 2: #need a head and tail to calculate days
             return len(self._entries)
         return (self._entries.last.date - self._entries.first.date).days + 1
+
+    # Least-squares slope of weight vs. day offset, in lbs/day (positive = gaining).
+    # Uses every weigh-in, so one noisy reading can't dominate the estimate.
+    # None when there are fewer than 2 distinct dates.
+    def weight_slope(self):
+        if len(self._entries) < 2:
+            return None
+        start = self._entries.first.date.date()
+        days = [(entry.date.date() - start).days for entry in self._entries]
+        if len(set(days)) < 2:
+            return None
+        weights = [entry.weight for entry in self._entries]
+        return statistics.linear_regression(days, weights).slope
 
     # First (earliest) and last (latest) entries, or None when the log is empty
     def first(self) -> DailyEntry:
@@ -147,18 +179,14 @@ class MaintenanceCalculator:
 
     def maintenance_calculator(self):
         avg_cals = self._log.average_calories()
-        weight_diff = self._log.weight_difference()
-        days = self._log.days_tracked()
+        slope = self._log.weight_slope()
 
-        # Need at least two entries spanning a real time window to estimate maintenance.
-        if avg_cals is None or weight_diff is None or days == 0:
+        # Need at least two distinct dates to estimate maintenance.
+        if avg_cals is None or slope is None:
             return None
 
-        cals_change = weight_diff * 3500
-        daily_cals_change = cals_change / days
-
-        maintenance = avg_cals + daily_cals_change
-        return maintenance
+        # Gaining (slope > 0) means intake was above maintenance, and vice versa.
+        return avg_cals - slope * KCAL_PER_LB
     
 class TrendAnalyzer:
     def __init__ (self, log:CaloriesLog):
@@ -186,17 +214,15 @@ class TrendAnalyzer:
         return moving_averages
     
     def weight_trend(self) -> str:
-        if len(self._log) < 2:
+        rate = self._log.weight_slope()  # lbs/day; positive means gaining
+        if rate is None:
             return "Insufficient data"
-        
-        weight_diff = self._log.weight_difference()
         days = self._log.days_tracked()
-        rate = weight_diff / days  # lbs/day; positive means losing (start - end)
 
         # Threshold is expressed in the same unit as the reported rate (lbs/day).
         if abs(rate) < 0.05:
             return f"Stable weight (~{abs(rate):.2f} lbs/day over {days} days)"
-        elif weight_diff > 0:
+        elif rate < 0:
             return f"Losing weight: {abs(rate):.2f} lbs/day average"
         else:
             return f"Gaining weight: {abs(rate):.2f} lbs/day average"
@@ -228,7 +254,14 @@ class EntryValidator:
         return True
 
 class GoalPlanner:
+    CALORIE_BOUNDS = (800, 5000)  # realistic daily intake range for recommendations
+
     def __init__ (self, current_weight: float, target_weight: float, time_frame: int, maintenance_calories: float):
+        # bool is an int subclass but never a meaningful number of days
+        if isinstance(time_frame, bool) or not isinstance(time_frame, int):
+            raise TypeError(f"Time frame must be a whole number of days, got {time_frame!r}")
+        if time_frame <= 0:
+            raise ValueError(f"Time frame must be a positive number of days, got {time_frame}")
         self._current_weight = current_weight
         self._target_weight = target_weight
         self._time_frame = time_frame
@@ -236,7 +269,7 @@ class GoalPlanner:
 
     def recommend_calories(self):
         weight_diff = self._target_weight - self._current_weight
-        total_calories = weight_diff * 3500
+        total_calories = weight_diff * KCAL_PER_LB
         daily_calories = total_calories / self._time_frame
         
         return self._maintenance + daily_calories
@@ -244,27 +277,25 @@ class GoalPlanner:
     def recommend_calories_optimized(self):
         def objective(calories):
             weight = self._current_weight
-            maintenance = self._maintenance
-            time_frame = self._time_frame
 
-            for day in range(time_frame):
-                # daily_balance > 0 is a surplus (eating above maintenance),
-                # daily_balance < 0 is a deficit (eating below maintenance).
-                daily_balance = calories - maintenance
-                weight += daily_balance / 3500
-
-                # Adjust maintenance based on weight change (metabolic adaptation):
-                # it drifts down as you lose weight and up as you gain.
-                weight_change_factor = abs(weight - self._current_weight)
-
-                if daily_balance < 0:  # deficit -> losing weight -> lower maintenance
-                    maintenance -= 5 * weight_change_factor
-                elif daily_balance > 0:  # surplus -> gaining weight -> higher maintenance
-                    maintenance += 5 * weight_change_factor
+            for _ in range(self._time_frame):
+                # Metabolic adaptation: maintenance tracks total weight change so far
+                # (lower after losing, higher after gaining). It is recomputed from the
+                # starting value each day rather than accumulated, so it doesn't compound.
+                maintenance = self._maintenance - ADAPT_KCAL_PER_LB * (self._current_weight - weight)
+                weight += (calories - maintenance) / KCAL_PER_LB
 
             return (weight - self._target_weight) ** 2  # Minimize the squared difference
 
-        result = minimize_scalar(objective, bounds=(800, 5000), method='bounded') # realistic calorie bounds
+        low, high = self.CALORIE_BOUNDS
+        result = minimize_scalar(objective, bounds=(low, high), method='bounded')
         if not result.success:
             logging.warning(f"Optimization did not converge: {result.message}")
-        return result.x
+        # result.fun is the squared miss in lbs; a reachable target is hit almost exactly,
+        # so a real miss means the optimum is held back by a calorie bound.
+        if result.fun > UNREACHABLE_TOLERANCE_LBS ** 2:
+            logging.warning(
+                f"Target of {self._target_weight} lbs in {self._time_frame} days is not reachable "
+                f"within {low}-{high} kcal/day; recommendation is pinned at the bound"
+            )
+        return float(result.x)
