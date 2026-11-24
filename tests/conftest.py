@@ -1,6 +1,6 @@
 import pytest
 
-from src.util.storage import DATA_FILE_ENV_VAR
+from calorie_tracker.util.storage import DATA_FILE_ENV_VAR
 
 
 @pytest.fixture(autouse=True)

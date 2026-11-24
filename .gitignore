@@ -1,9 +1,15 @@
 # Python
 *.pyc
 __pycache__/
+*.egg-info/
+build/
+dist/
+.venv/
+.mypy_cache/
+.ruff_cache/
 
 # OS
 .DS_Store
 
 # Local scratch
-src/ignore/
+calorie_tracker/ignore/

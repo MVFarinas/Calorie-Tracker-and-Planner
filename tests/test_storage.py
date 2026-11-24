@@ -7,10 +7,10 @@ from pathlib import Path
 
 import pytest
 
-from src.entry import CaloriesLog, DailyEntry
-from src.util import storage
-from src.util.file_loader import FileLoader
-from src.util.storage import (
+from calorie_tracker.entry import CaloriesLog, DailyEntry
+from calorie_tracker.util import storage
+from calorie_tracker.util.file_loader import FileLoader
+from calorie_tracker.util.storage import (
     DATA_FILE_ENV_VAR,
     DEFAULT_SETTINGS,
     StorageError,

@@ -41,7 +41,7 @@ GOAL_DISCLAIMER = ("Note: these are estimates only, not medical advice. Check wi
 
 
 def parse_args(argv=None) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(prog="python -m src.main",
+    parser = argparse.ArgumentParser(prog="calorie-tracker",
                                      description="Estimate maintenance calories and plan weight goals.")
     parser.add_argument("-v", "--verbose", action="store_true",
                         help="show debug logging, including details of every entry added or rejected")

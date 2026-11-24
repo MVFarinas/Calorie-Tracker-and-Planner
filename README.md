@@ -53,18 +53,20 @@ The project supports importing data from `.csv` and `.json`, performs analysis w
 
 # Requirements
 - Python 3.10+
-- SciPy
+- SciPy (installed automatically)
 
-Install dependencies with:
+Dependencies are declared in `pyproject.toml`. Install the package from the repository root, in a virtual environment if you like:
 ```
-pip install -r requirements.txt
+pip install -e .          # the app and its runtime dependencies
+pip install -e ".[dev]"   # also pytest, ruff and mypy, for development
 ```
+`pip install -r requirements.txt` and `pip install -r requirements-dev.txt` (run from the repository root) do the same two things.
 
 # Usage
-Run both entry points as modules from the repository root:
+After installing:
 
-- `python -m src.example` runs a demo of the methods in `entry.py` and the file loading in `file_loader.py`
-- `python -m src.main` launches the CLI to input user data, load file data, and analyze it. Only warnings are logged by default; pass `-v`/`--verbose` to also log every entry added or rejected (this prints your weight and calorie data). Pass `--data-file PATH` to choose where the log is saved (see [Your Data](#your-data)), and `--units kg` or `--units lbs` to choose the weight unit for that session (see [Weight Units](#weight-units))
+- `calorie-tracker` (or `python -m calorie_tracker.main`) launches the CLI to input user data, load file data, and analyze it. Only warnings are logged by default; pass `-v`/`--verbose` to also log every entry added or rejected (this prints your weight and calorie data). Pass `--data-file PATH` to choose where the log is saved (see [Your Data](#your-data)), and `--units kg` or `--units lbs` to choose the weight unit for that session (see [Weight Units](#weight-units))
+- `python -m calorie_tracker.example` runs a demo of the methods in `entry.py` and the file loading in `file_loader.py`
 
 # Weight Units
 Weights can be entered and shown in pounds (the default) or kilograms. Choose "Change weight unit" in the CLI menu; the choice is remembered for next time. `--units kg` (or `--units lbs`) uses that unit for one session without changing the remembered choice.
@@ -126,12 +128,16 @@ The CLI keeps your log in a JSON file, by default `~/.calorie_tracker/log.json` 
 - An empty file is treated as an empty log. If the file can't be read back exactly (it or its folder isn't readable, invalid JSON, a missing field, or entries that fail validation, e.g. after a hand edit), the CLI refuses to start and leaves the file untouched, rather than risk overwriting it. Fix or move the file, or point `--data-file` somewhere else.
 - If a save fails (e.g. the folder is read-only), the CLI warns you and keeps going; on exit it tries once more and warns if your changes still couldn't be saved.
 
-# Running Tests
-The project uses `pytest`. Install the development dependencies and run the suite from the repository root:
+# Development
+Install the development dependencies, then run the tests, linter, formatter check and type checker from the repository root:
 ```
-pip install -r requirements-dev.txt
+pip install -e ".[dev]"
 pytest
+ruff check .
+ruff format --check .
+mypy
 ```
+Their settings live in `pyproject.toml`. `ruff format .` reformats the code, and `ruff check --fix .` fixes the lint findings it can.
 
 # Why I'm Doing This Project
 I wanted to combine my interest in fitness and nutrition with my growing skills in software engineering. Many commercial fitness apps are closed-source so users never see how calculations are made. 

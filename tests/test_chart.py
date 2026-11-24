@@ -2,7 +2,7 @@ from datetime import datetime, timedelta
 
 import pytest
 
-from src.chart import BOTH_MARK, DEFAULT_WIDTH, RAW_MARK, TREND_MARK, render_weight_chart
+from calorie_tracker.chart import BOTH_MARK, DEFAULT_WIDTH, RAW_MARK, TREND_MARK, render_weight_chart
 
 
 def series(weights, start=datetime(2025, 7, 1), step_days=1):

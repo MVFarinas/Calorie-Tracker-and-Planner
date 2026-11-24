@@ -6,7 +6,7 @@ import sys
 
 import pytest
 
-from src import main as cli
+from calorie_tracker import main as cli
 
 EXIT = cli.EXIT_CHOICE
 

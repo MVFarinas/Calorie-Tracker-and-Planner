@@ -3,10 +3,10 @@ from pathlib import Path
 
 import pytest
 
-import src
-from src.util.file_loader import FileLoader
+import calorie_tracker
+from calorie_tracker.util.file_loader import FileLoader
 
-DATA_DIR = Path(src.__file__).parent / "data"
+DATA_DIR = Path(calorie_tracker.__file__).parent / "data"
 
 
 def signature(entries):
@@ -177,7 +177,7 @@ def test_csv_underscore_digits_are_rejected(tmp_path, row):
 # --- File size ------------------------------------------------------------
 
 def test_oversized_file_is_rejected(tmp_path, monkeypatch):
-    from src.util import file_loader
+    from calorie_tracker.util import file_loader
     monkeypatch.setattr(file_loader, "MAX_FILE_BYTES", 10)
     p = tmp_path / "big.csv"
     p.write_text("date,weight,calories\n2025-07-01,200,2200\n", encoding="utf-8")
@@ -186,7 +186,7 @@ def test_oversized_file_is_rejected(tmp_path, monkeypatch):
 
 
 def test_default_size_limit_is_10_mb():
-    from src.util import file_loader
+    from calorie_tracker.util import file_loader
     assert file_loader.MAX_FILE_BYTES == 10 * 1024 * 1024
 
 

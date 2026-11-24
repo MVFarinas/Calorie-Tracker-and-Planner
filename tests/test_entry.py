@@ -5,7 +5,7 @@ import math
 
 import pytest
 
-from src.entry import (
+from calorie_tracker.entry import (
     ADAPT_KCAL_PER_LB,
     KCAL_PER_LB,
     MAX_SAFE_LBS_PER_WEEK,
@@ -199,7 +199,7 @@ def test_optimized_logs_unreachable_target_at_info_without_target_weight(caplog)
     # The user-facing warning comes from safety_warnings(); the log is only a
     # diagnostic and must not carry the target weight at the default level.
     planner = GoalPlanner(current_weight=200, target_weight=150, time_frame=10, maintenance_calories=2500)
-    with caplog.at_level(logging.INFO, logger="src.entry"):
+    with caplog.at_level(logging.INFO, logger="calorie_tracker.entry"):
         value = planner.recommend_calories_optimized()
     assert value == pytest.approx(MIN_SAFE_CALORIES, abs=1)
     records = [r for r in caplog.records if "not reachable" in r.getMessage()]
@@ -512,7 +512,7 @@ def test_importing_entry_does_not_configure_logging():
     import sys
     from pathlib import Path
 
-    code = ("import logging, src.entry; root = logging.getLogger(); "
+    code = ("import logging, calorie_tracker.entry; root = logging.getLogger(); "
             "print(len(root.handlers), root.level)")
     result = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True,
                             cwd=Path(__file__).resolve().parent.parent, check=True)
@@ -520,7 +520,7 @@ def test_importing_entry_does_not_configure_logging():
 
 
 def test_entry_contents_are_logged_at_debug_only(caplog):
-    with caplog.at_level(logging.DEBUG, logger="src.entry"):
+    with caplog.at_level(logging.DEBUG, logger="calorie_tracker.entry"):
         log = CaloriesLog()
         log.add_entry(DailyEntry(datetime(2025, 7, 1), 213.4, 2200))   # added
         log.add_entry(DailyEntry(datetime(2025, 7, 1), 213.4, 2200))   # duplicate
@@ -528,7 +528,7 @@ def test_entry_contents_are_logged_at_debug_only(caplog):
     entry_records = [r for r in caplog.records if "213.4" in r.getMessage()]
     assert len(entry_records) == 3
     assert all(r.levelno == logging.DEBUG for r in entry_records)
-    assert all(r.name == "src.entry" for r in caplog.records)
+    assert all(r.name == "calorie_tracker.entry" for r in caplog.records)
 
 
 # --- Removing and updating entries -----------------------------------------

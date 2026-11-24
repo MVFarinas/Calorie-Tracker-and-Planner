@@ -1,6 +1,6 @@
 import pytest
 
-from src.units import (
+from calorie_tracker.units import (
     KG,
     KG_PER_LB,
     LBS,
