@@ -1,0 +1,66 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "calorie-tracker"
+version = "0.1.0"
+description = "Estimate maintenance calories from a food and weight log and plan weight goals."
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "scipy>=1.10,<2",
+]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Environment :: Console",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0,<10",
+    # Pinned to one minor release so `ruff format --check` gives the same result everywhere.
+    "ruff>=0.17,<0.18",
+    "mypy>=1.10,<3",
+]
+
+[project.scripts]
+calorie-tracker = "calorie_tracker.main:main"
+
+[tool.setuptools.packages.find]
+include = ["calorie_tracker*"]
+
+[tool.setuptools.package-data]
+calorie_tracker = ["data/*.csv", "data/*.json", "data/*.txt"]
+
+[tool.pytest.ini_options]
+# Lets the tests import calorie_tracker from a checkout that isn't installed.
+pythonpath = ["."]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # import sorting
+    "B",   # bugbear
+    "UP",  # pyupgrade (for the py310 target)
+]
+
+[tool.mypy]
+python_version = "3.10"
+files = ["calorie_tracker", "tests"]
+check_untyped_defs = true
+warn_unused_ignores = true
+warn_redundant_casts = true
+
+[[tool.mypy.overrides]]
+# scipy ships no type information.
+module = ["scipy", "scipy.*"]
+ignore_missing_imports = true

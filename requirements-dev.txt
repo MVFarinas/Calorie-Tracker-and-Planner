@@ -1,2 +1,3 @@
--r requirements.txt
-pytest>=7.0
+# Development tools are declared in pyproject.toml (the [dev] extra); this installs them
+# together with the package.
+-e .[dev]

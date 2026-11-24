@@ -1,21 +1,34 @@
 # main program logic with CLI
 
-from .util.file_loader import FileLoader
-from .util.storage import (DATA_FILE_ENV_VAR, DEFAULT_SETTINGS, EXPORT_FORMATS, StorageError, export_log,
-                           format_date, load_log, load_settings, resolve_data_file, save_log, save_settings,
-                           settings_file_for)
-from .entry import CaloriesLog, DailyEntry, MaintenanceCalculator, GoalPlanner, TrendAnalyzer
-from .chart import DEFAULT_WIDTH, render_weight_chart
-from .units import LBS, format_weight, from_lbs, normalize_unit, to_lbs
-from collections import Counter
-from datetime import datetime
-from pathlib import Path
 import argparse
 import logging
 import math
 import os
 import shutil
 import sys
+from collections import Counter
+from collections.abc import Iterable
+from datetime import datetime
+from pathlib import Path
+
+from .chart import DEFAULT_WIDTH, render_weight_chart
+from .entry import CaloriesLog, DailyEntry, GoalPlanner, MaintenanceCalculator, TrendAnalyzer
+from .units import LBS, format_weight, from_lbs, normalize_unit, to_lbs
+from .util.file_loader import FileLoader
+from .util.storage import (
+    DATA_FILE_ENV_VAR,
+    DEFAULT_SETTINGS,
+    EXPORT_FORMATS,
+    StorageError,
+    export_log,
+    format_date,
+    load_log,
+    load_settings,
+    resolve_data_file,
+    save_log,
+    save_settings,
+    settings_file_for,
+)
 
 DEMO_DATA = Path(__file__).parent / "data" / "sample_data.csv"
 
@@ -36,21 +49,35 @@ MENU_OPTIONS = (
 )
 EXIT_CHOICE = str(len(MENU_OPTIONS))
 
-GOAL_DISCLAIMER = ("Note: these are estimates only, not medical advice. Check with a doctor "
-                   "or registered dietitian before making big changes to your diet.")
+GOAL_DISCLAIMER = (
+    "Note: these are estimates only, not medical advice. Check with a doctor "
+    "or registered dietitian before making big changes to your diet."
+)
 
 
 def parse_args(argv=None) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(prog="python -m src.main",
-                                     description="Estimate maintenance calories and plan weight goals.")
-    parser.add_argument("-v", "--verbose", action="store_true",
-                        help="show debug logging, including details of every entry added or rejected")
-    parser.add_argument("--data-file", metavar="PATH",
-                        help=f"JSON file the log is saved to and loaded from (default: ${DATA_FILE_ENV_VAR} "
-                             "if set, otherwise ~/.calorie_tracker/log.json)")
-    parser.add_argument("--units", type=_unit_arg, metavar="{lbs,kg}",
-                        help="show and enter weights in this unit for this session "
-                             "(default: the unit last chosen in the menu, otherwise lbs)")
+    parser = argparse.ArgumentParser(
+        prog="calorie-tracker", description="Estimate maintenance calories and plan weight goals."
+    )
+    parser.add_argument(
+        "-v",
+        "--verbose",
+        action="store_true",
+        help="show debug logging, including details of every entry added or rejected",
+    )
+    parser.add_argument(
+        "--data-file",
+        metavar="PATH",
+        help=f"JSON file the log is saved to and loaded from (default: ${DATA_FILE_ENV_VAR} "
+        "if set, otherwise ~/.calorie_tracker/log.json)",
+    )
+    parser.add_argument(
+        "--units",
+        type=_unit_arg,
+        metavar="{lbs,kg}",
+        help="show and enter weights in this unit for this session "
+        "(default: the unit last chosen in the menu, otherwise lbs)",
+    )
     return parser.parse_args(argv)
 
 
@@ -58,13 +85,12 @@ def _unit_arg(value: str) -> str:
     try:
         return normalize_unit(value)
     except ValueError as e:
-        raise argparse.ArgumentTypeError(str(e))
+        raise argparse.ArgumentTypeError(str(e)) from e
 
 
 def configure_logging(verbose: bool = False) -> None:
     # Warnings only by default: debug messages include personal weight and calorie data.
-    logging.basicConfig(level=logging.DEBUG if verbose else logging.WARNING,
-                        format="%(levelname)s: %(message)s")
+    logging.basicConfig(level=logging.DEBUG if verbose else logging.WARNING, format="%(levelname)s: %(message)s")
 
 
 def prompt_float(prompt: str) -> float:
@@ -80,7 +106,7 @@ def prompt_float(prompt: str) -> float:
         return value
 
 
-def prompt_int(prompt: str, minimum: int = None) -> int:
+def prompt_int(prompt: str, minimum: int | None = None) -> int:
     while True:
         try:
             value = int(input(prompt).strip())
@@ -101,10 +127,10 @@ def prompt_date(prompt: str) -> datetime:
             print("Please enter a date in YYYY-MM-DD format.")
 
 
-def add_entries(log: CaloriesLog, entries) -> tuple[int, Counter]:
+def add_entries(log: CaloriesLog, entries: Iterable[DailyEntry]) -> tuple[int, Counter[str | None]]:
     """Add each entry to the log; return how many were added and a count of rejection reasons."""
     added = 0
-    skipped = Counter()
+    skipped: Counter[str | None] = Counter()
     for entry in entries:
         if log.add_entry(entry):
             added += 1
@@ -113,7 +139,7 @@ def add_entries(log: CaloriesLog, entries) -> tuple[int, Counter]:
     return added, skipped
 
 
-def print_skipped(skipped: Counter) -> None:
+def print_skipped(skipped: Counter[str | None]) -> None:
     for reason, count in skipped.most_common():
         print(f"  Skipped {count}: {reason}")
 
@@ -205,7 +231,9 @@ def export_entries(log: CaloriesLog, unit: str = LBS, data_file=None) -> None:
     # The path checks raise ValueError too, e.g. for a NUL character in the path.
     try:
         if data_file is not None and os.path.realpath(path) in (
-                os.path.realpath(data_file), os.path.realpath(settings_file_for(data_file))):
+            os.path.realpath(data_file),
+            os.path.realpath(settings_file_for(data_file)),
+        ):
             print("\nThat file holds your saved log or settings; choose another path.")
             return
         if os.path.isdir(path):
@@ -260,10 +288,15 @@ def analyze_trends(log: CaloriesLog, unit: str = LBS) -> None:
         entries = log.get_entries_list()
         trend = analyzer.trend_weights()
         print()
-        print(render_weight_chart([entry.date for entry in entries], [entry.weight for entry in entries],
-                                  trend, unit, width=chart_width()))
-        print(f"\nLatest trend weight: {format_weight(trend[-1], unit, decimals=1)} "
-              f"(scale: {format_weight(entries[-1].weight, unit, decimals=1)})")
+        print(
+            render_weight_chart(
+                [entry.date for entry in entries], [entry.weight for entry in entries], trend, unit, width=chart_width()
+            )
+        )
+        print(
+            f"\nLatest trend weight: {format_weight(trend[-1], unit, decimals=1)} "
+            f"(scale: {format_weight(entries[-1].weight, unit, decimals=1)})"
+        )
         if len(log) >= 2:
             print(f"Overall: {analyzer.weight_trend(unit)}")
 
@@ -271,7 +304,7 @@ def analyze_trends(log: CaloriesLog, unit: str = LBS) -> None:
         print("\nInvalid choice. Please select 1 or 2.")
 
 
-def choose_unit(current: str):
+def choose_unit(current: str) -> str | None:
     """Ask which unit to use; returns it, or None (after saying so) for an invalid answer."""
     answer = input(f"Show weights in 'lbs' or 'kg' (currently {current}): ").strip()
     try:
@@ -281,7 +314,7 @@ def choose_unit(current: str):
         return None
 
 
-def main(data_file=None, units=None) -> int:
+def run_menu(data_file=None, units=None) -> int:
     """Run the interactive menu. With data_file, the log is loaded from it at
     startup and saved back after every change, and the chosen weight unit is kept
     in a settings file next to it; without it nothing is persisted. `units`
@@ -315,8 +348,10 @@ def main(data_file=None, units=None) -> int:
             save_log(log, data_file)
         except OSError as e:
             unsaved = True
-            print(f"Warning: could not save to {data_file}: {e}. "
-                  f"Changes since the last successful save are not saved yet.")
+            print(
+                f"Warning: could not save to {data_file}: {e}. "
+                f"Changes since the last successful save are not saved yet."
+            )
             return False
         unsaved = False
         return True
@@ -386,13 +421,19 @@ def main(data_file=None, units=None) -> int:
                 avg_calories = log.average_calories()
                 print("\n--- Summary ---")
                 print(f"Days tracked: {log.days_tracked()}")
-                print(f"Weight change: {from_lbs(weight_change, unit):.2f} {unit}" if weight_change is not None else "Weight change: N/A (need at least 2 entries)")
-                print(f"Average calories: {avg_calories:.0f}" if avg_calories is not None else "Average calories: N/A (no entries)")
+                if weight_change is None:
+                    print("Weight change: N/A (need at least 2 entries)")
+                else:
+                    print(f"Weight change: {from_lbs(weight_change, unit):.2f} {unit}")
+                if avg_calories is None:
+                    print("Average calories: N/A (no entries)")
+                else:
+                    print(f"Average calories: {avg_calories:.0f}")
 
             elif choice == "4":
                 # Maintenance calories
                 calculator = MaintenanceCalculator(log)
-                maintenance = calculator.maintenance_calculator()
+                maintenance = calculator.estimate()
                 if maintenance is None:
                     print("\nNot enough data to estimate maintenance calories (need at least 2 entries).")
                 else:
@@ -401,7 +442,7 @@ def main(data_file=None, units=None) -> int:
             elif choice == "5":
                 # Goal planner
                 calculator = MaintenanceCalculator(log)
-                maintenance = calculator.maintenance_calculator()
+                maintenance = calculator.estimate()
                 if maintenance is None:
                     print("\nNot enough data to plan a goal yet (need at least 2 entries to estimate maintenance).")
                 else:
@@ -424,7 +465,10 @@ def main(data_file=None, units=None) -> int:
                 print("\nLoading demo entries...")
                 demo_entries = FileLoader.load_file(str(DEMO_DATA))
                 added, skipped = add_entries(log, demo_entries)
-                print(f"Added {added} of {len(demo_entries)} demo entries. Try viewing summary or calculating maintenance.")
+                print(
+                    f"Added {added} of {len(demo_entries)} demo entries. "
+                    "Try viewing summary or calculating maintenance."
+                )
                 print_skipped(skipped)
                 if added:
                     save()
@@ -460,7 +504,8 @@ def main(data_file=None, units=None) -> int:
     return 0
 
 
-def run(argv=None) -> int:
+def main(argv=None) -> int:
+    """Console-script entry point: parse the command line, then run the menu."""
     args = parse_args(argv)
     configure_logging(args.verbose)
     try:
@@ -468,8 +513,8 @@ def run(argv=None) -> int:
     except ValueError as e:
         print(f"Error: {e}", file=sys.stderr)
         return 2
-    return main(data_file, args.units)
+    return run_menu(data_file, args.units)
 
 
 if __name__ == "__main__":
-    sys.exit(run())
+    sys.exit(main())
