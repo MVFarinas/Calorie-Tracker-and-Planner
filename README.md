@@ -17,11 +17,13 @@ The project supports importing data from `.csv` and `.json`, performs analysis w
 
   - Ensures realistic entries (`EntryValidator`)
   - Rejects a second entry for a date that is already logged
+  - Rejects weight changes of more than 5 lbs per day compared with the entries just before and after the new date (so back-filled days are checked too)
 
 - Caloric Recommendations:
 
   - Algebraic approach (linear math)
   - Optimized approach using scipy.optimize (nonlinear metabolic adaptation model)
+  - Safety guardrails: recommendations never go below 1200 kcal/day, and goals that need more than 2 lbs/week of loss are flagged with the shortest safe time frame
 
 - File Import (read-only):
   - Import data from `.csv`, `.json`, and `.txt` files using `file_loader.py`
@@ -30,7 +32,10 @@ The project supports importing data from `.csv` and `.json`, performs analysis w
 - **Maintenance calories** (`MaintenanceCalculator`): fits a least-squares line through every weigh-in (weight vs. day) to get the rate of weight change in lbs/day, then
   `maintenance = average calories - slope * 3500` (about 3500 kcal per lb of body weight). Using every weigh-in instead of only the first and last keeps a single noisy reading (e.g. water weight) from dominating. At least two different dates are needed. The weight trend in `TrendAnalyzer` uses the same slope.
 - **Algebraic recommendation**: `maintenance + (target - current) * 3500 / days`, i.e. a constant deficit or surplus.
-- **Optimized recommendation** (metabolic adaptation): simulates the plan day by day, with maintenance shifting by `ADAPT_KCAL_PER_LB` (10 kcal/day) for every lb lost or gained relative to the starting weight, and uses `scipy.optimize.minimize_scalar` to find the constant daily intake (800 to 5000 kcal) that lands on the target weight. For losing weight it is slightly below the algebraic value, and for gaining slightly above. If the target can't be reached within those bounds (the best plan misses it by more than 0.1 lb), a warning is logged and the bound is returned.
+- **Optimized recommendation** (metabolic adaptation): simulates the plan day by day, with maintenance shifting by `ADAPT_KCAL_PER_LB` (10 kcal/day) for every lb lost or gained relative to the starting weight, and uses `scipy.optimize.minimize_scalar` to find the constant daily intake (1200 to 5000 kcal) that lands on the target weight. For losing weight it is slightly below the algebraic value, and for gaining slightly above. If the target can't be reached within those bounds (the best plan misses it by more than 0.1 lb), a warning is logged and the bound is returned.
+- **Safety guardrails** (`GoalPlanner.safety_warnings`): both recommendations are floored at `MIN_SAFE_CALORIES` (1200 kcal/day). A goal is flagged when it needs more than `MAX_SAFE_LBS_PER_WEEK` (2 lbs/week) of loss or would need intake below the floor, and the warning includes the shortest safe time frame (`GoalPlanner.min_safe_time_frame`). The CLI prints these warnings with every goal plan.
+
+> **Disclaimer:** all numbers from this project are estimates only, not medical advice. Talk to a doctor or registered dietitian before making significant changes to your diet, especially if you are pregnant, have a medical condition, or are under 18.
 
 # Requirements
 - Python 3.10+

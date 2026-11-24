@@ -7,6 +7,9 @@ from pathlib import Path
 
 DEMO_DATA = Path(__file__).parent / "data" / "sample_data.csv"
 
+GOAL_DISCLAIMER = ("Note: these are estimates only, not medical advice. Check with a doctor "
+                   "or registered dietitian before making big changes to your diet.")
+
 
 def prompt_float(prompt: str) -> float:
     while True:
@@ -106,6 +109,9 @@ def main():
                     planner = GoalPlanner(current_weight, target_weight, time_frame, maintenance)
                     print(f"\nRecommended Intake (Algebraic): {planner.recommend_calories():.0f}")
                     print(f"Recommended Intake (Optimized): {planner.recommend_calories_optimized():.0f}")
+                    for warning in planner.safety_warnings():
+                        print(f"Warning: {warning}")
+                    print(f"\n{GOAL_DISCLAIMER}")
 
             elif choice == "6":
                 # Trend analysis

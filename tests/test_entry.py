@@ -7,6 +7,8 @@ import pytest
 
 from src.entry import (
     ADAPT_KCAL_PER_LB,
+    MAX_SAFE_LBS_PER_WEEK,
+    MIN_SAFE_CALORIES,
     CaloriesLog,
     DailyEntry,
     EntryValidator,
@@ -196,7 +198,7 @@ def test_optimized_warns_when_target_unreachable(caplog):
     planner = GoalPlanner(current_weight=200, target_weight=150, time_frame=10, maintenance_calories=2500)
     with caplog.at_level(logging.WARNING):
         value = planner.recommend_calories_optimized()
-    assert value == pytest.approx(800, abs=1)
+    assert value == pytest.approx(MIN_SAFE_CALORIES, abs=1)
     assert "not reachable" in caplog.text
 
 
@@ -209,11 +211,89 @@ def test_optimized_does_not_warn_for_reachable_target(caplog):
 
 def test_optimized_does_not_warn_when_reachable_answer_is_near_bound(caplog):
     # Maintenance just inside the floor: the target is hit exactly, so no warning.
-    planner = GoalPlanner(current_weight=200, target_weight=200, time_frame=30, maintenance_calories=800.5)
+    maintenance = MIN_SAFE_CALORIES + 0.5
+    planner = GoalPlanner(current_weight=200, target_weight=200, time_frame=30, maintenance_calories=maintenance)
     with caplog.at_level(logging.WARNING):
         value = planner.recommend_calories_optimized()
-    assert value == pytest.approx(800.5, abs=0.1)
+    assert value == pytest.approx(maintenance, abs=0.1)
     assert "not reachable" not in caplog.text
+
+
+# --- Goal safety guardrails ----------------------------------------------
+
+def test_aggressive_loss_is_floored_and_warned():
+    # 50 lb in 30 days would need about -3333 kcal/day.
+    planner = GoalPlanner(current_weight=200, target_weight=150, time_frame=30, maintenance_calories=2500)
+    assert planner.recommend_calories() == MIN_SAFE_CALORIES
+    assert planner.recommend_calories_optimized() >= MIN_SAFE_CALORIES
+    warnings = planner.safety_warnings()
+    assert any("lbs/week" in w for w in warnings)
+    assert any(f"below {MIN_SAFE_CALORIES} kcal/day" in w for w in warnings)
+    # 50 lb at 2 lb/week takes 175 days.
+    assert planner.min_safe_time_frame() == 175
+    assert any("at least 175 days" in w for w in warnings)
+
+
+def test_moderate_loss_has_no_warnings():
+    planner = GoalPlanner(current_weight=200, target_weight=190, time_frame=60, maintenance_calories=2500)
+    assert planner.safety_warnings() == []
+    assert planner.recommend_calories() == pytest.approx(2500 - 10 * 3500 / 60)
+
+
+def test_loss_rate_limit_is_exactly_two_lbs_per_week():
+    # 4 lb in 14 days is exactly the limit; one day fewer is too fast.
+    at_limit = GoalPlanner(current_weight=200, target_weight=196, time_frame=14, maintenance_calories=3000)
+    too_fast = GoalPlanner(current_weight=200, target_weight=196, time_frame=13, maintenance_calories=3000)
+    assert MAX_SAFE_LBS_PER_WEEK == 2
+    assert at_limit.safety_warnings() == []
+    assert any("lbs/week" in w for w in too_fast.safety_warnings())
+    assert too_fast.min_safe_time_frame() == 14
+
+
+def test_floor_warning_without_rate_warning():
+    # 1.75 lb/week is within the rate limit, but a 1500 kcal maintenance
+    # leaves only 300 kcal/day of room above the floor.
+    planner = GoalPlanner(current_weight=200, target_weight=190, time_frame=40, maintenance_calories=1500)
+    warnings = planner.safety_warnings()
+    assert not any("lbs/week" in w for w in warnings)
+    assert any(f"below {MIN_SAFE_CALORIES} kcal/day" in w for w in warnings)
+    assert planner.recommend_calories() == MIN_SAFE_CALORIES
+
+
+@pytest.mark.parametrize("current,target,time_frame,maintenance", [
+    (200, 150, 30, 2500),   # limited by the weekly loss rate
+    (200, 190, 30, 1500),   # limited by the calorie floor
+    (150, 148, 7, 1800),
+])
+def test_min_safe_time_frame_is_the_boundary(current, target, time_frame, maintenance):
+    safe_days = GoalPlanner(current, target, time_frame, maintenance).min_safe_time_frame()
+    at_safe = GoalPlanner(current, target, safe_days, maintenance)
+    one_less = GoalPlanner(current, target, safe_days - 1, maintenance)
+    assert at_safe.safety_warnings() == []
+    assert at_safe.recommend_calories_optimized() >= MIN_SAFE_CALORIES
+    assert one_less.safety_warnings() != []
+
+
+def test_floor_based_time_frame_matches_optimizer():
+    # At the suggested time frame the optimizer can hit the target without
+    # being pinned at the floor.
+    planner = GoalPlanner(current_weight=200, target_weight=190, time_frame=30, maintenance_calories=1500)
+    safe_days = planner.min_safe_time_frame()
+    assert safe_days > 10 * 7 / MAX_SAFE_LBS_PER_WEEK  # floor, not rate, is the limit
+    optimized = GoalPlanner(200, 190, safe_days, 1500).recommend_calories_optimized()
+    assert optimized == pytest.approx(MIN_SAFE_CALORIES, abs=5)
+
+
+def test_unreachable_when_maintenance_is_too_low():
+    planner = GoalPlanner(current_weight=200, target_weight=190, time_frame=100, maintenance_calories=1100)
+    assert planner.min_safe_time_frame() is None
+    assert any("can't be reached" in w for w in planner.safety_warnings())
+
+
+def test_gain_goal_has_no_safety_warnings():
+    planner = GoalPlanner(current_weight=150, target_weight=160, time_frame=60, maintenance_calories=2500)
+    assert planner.safety_warnings() == []
+    assert planner.min_safe_time_frame() == 1
 
 
 # --- Trend analysis -------------------------------------------------------

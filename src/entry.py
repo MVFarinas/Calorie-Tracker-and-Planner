@@ -1,6 +1,7 @@
 from scipy.optimize import minimize_scalar
 from datetime import datetime
 import logging
+import math
 import numbers
 import statistics
 
@@ -18,6 +19,12 @@ ADAPT_KCAL_PER_LB = 10
 # Largest plausible change in body weight per day between two weigh-ins; a
 # bigger swing is almost certainly a typo or a unit mix-up.
 MAX_LBS_PER_DAY = 5
+
+# Health guardrails for goal planning (common general guidelines, not medical
+# advice): recommendations never go below MIN_SAFE_CALORIES, and a plan that
+# loses more than MAX_SAFE_LBS_PER_WEEK is flagged by GoalPlanner.safety_warnings.
+MIN_SAFE_CALORIES = 1200
+MAX_SAFE_LBS_PER_WEEK = 2
 
 # How far (lbs) the optimized plan may miss the target before it is reported
 # as unreachable within GoalPlanner.CALORIE_BOUNDS.
@@ -276,7 +283,8 @@ class EntryValidator:
         return True
 
 class GoalPlanner:
-    CALORIE_BOUNDS = (800, 5000)  # realistic daily intake range for recommendations
+    # Daily intake range for recommendations; the floor is the safety minimum.
+    CALORIE_BOUNDS = (MIN_SAFE_CALORIES, 5000)
 
     def __init__ (self, current_weight: float, target_weight: float, time_frame: int, maintenance_calories: float):
         # bool is an int subclass but never a meaningful number of days
@@ -290,12 +298,96 @@ class GoalPlanner:
         self._maintenance = maintenance_calories
 
     def recommend_calories(self):
+        # Constant deficit or surplus, never below the safe minimum.
+        return max(self._required_intake(self._time_frame, adaptive=False), MIN_SAFE_CALORIES)
+
+    def _required_intake(self, days: int, adaptive: bool) -> float:
+        # Constant daily intake that reaches the target in `days`, ignoring any bounds.
         weight_diff = self._target_weight - self._current_weight
-        total_calories = weight_diff * KCAL_PER_LB
-        daily_calories = total_calories / self._time_frame
-        
-        return self._maintenance + daily_calories
-    
+        if not adaptive or ADAPT_KCAL_PER_LB == 0:
+            return self._maintenance + weight_diff * KCAL_PER_LB / days
+        # Closed form of the day-by-day model in recommend_calories_optimized:
+        # eating c kcal/day changes weight by (c - maintenance) / k * (1 - r**t)
+        # after t days, with k = ADAPT_KCAL_PER_LB and r = 1 - k / KCAL_PER_LB.
+        r = 1 - ADAPT_KCAL_PER_LB / KCAL_PER_LB
+        return self._maintenance + weight_diff * ADAPT_KCAL_PER_LB / (1 - r ** days)
+
+    def _is_too_fast(self, days: int) -> bool:
+        loss_per_week = (self._current_weight - self._target_weight) / days * 7
+        return loss_per_week > MAX_SAFE_LBS_PER_WEEK + 1e-9
+
+    def _is_below_floor(self, days: int) -> bool:
+        # Either model needing less than the floor means the capped plan falls short.
+        needed = min(self._required_intake(days, adaptive=False),
+                     self._required_intake(days, adaptive=True))
+        return needed < MIN_SAFE_CALORIES - 1e-6
+
+    def _is_unsafe(self, days: int) -> bool:
+        return self._is_too_fast(days) or self._is_below_floor(days)
+
+    def min_safe_time_frame(self):
+        """Fewest days in which the target can be reached without losing more than
+        MAX_SAFE_LBS_PER_WEEK or eating below MIN_SAFE_CALORIES, or None when no
+        time frame can (maintenance is too low for this target)."""
+        loss = self._current_weight - self._target_weight
+        if loss <= 0:
+            # Gaining or maintaining: the shortest plan needs the most food.
+            return None if self._is_below_floor(1) else 1
+
+        spare = self._maintenance - MIN_SAFE_CALORIES  # largest deficit above the floor
+        k = ADAPT_KCAL_PER_LB
+        if spare <= 0 or loss * k >= spare:
+            return None
+        if k == 0:
+            floor_days = loss * KCAL_PER_LB / spare
+        else:
+            # Solve _required_intake(days, adaptive=True) == MIN_SAFE_CALORIES for days;
+            # the algebraic model always needs fewer days than this.
+            floor_days = math.log(1 - loss * k / spare) / math.log(1 - k / KCAL_PER_LB)
+        rate_days = loss * 7 / MAX_SAFE_LBS_PER_WEEK
+
+        # Round up, then step past any floating-point error so the answer agrees
+        # exactly with the checks used by safety_warnings.
+        days = max(1, math.ceil(max(floor_days, rate_days)))
+        while days > 1 and not self._is_unsafe(days - 1):
+            days -= 1
+        while self._is_unsafe(days):
+            days += 1
+        return days
+
+    def safety_warnings(self) -> list[str]:
+        """Human-readable warnings for an unsafe goal; empty when the plan is fine."""
+        warnings = []
+        days = self._time_frame
+        loss = self._current_weight - self._target_weight
+
+        if self._is_too_fast(days):
+            warnings.append(
+                f"Losing {loss:.1f} lbs in {days} days is about {loss / days * 7:.1f} lbs/week, "
+                f"faster than the {MAX_SAFE_LBS_PER_WEEK} lbs/week generally considered safe."
+            )
+        if self._is_below_floor(days):
+            warnings.append(
+                f"Reaching {self._target_weight:g} lbs in {days} days would require eating below "
+                f"{MIN_SAFE_CALORIES} kcal/day. Recommendations never go below {MIN_SAFE_CALORIES} "
+                f"kcal/day, so the target will not be reached in that time."
+            )
+
+        if warnings:
+            safe_days = self.min_safe_time_frame()
+            if safe_days is None:
+                warnings.append(
+                    f"With an estimated maintenance of {self._maintenance:.0f} kcal/day, this target "
+                    f"can't be reached while eating at least {MIN_SAFE_CALORIES} kcal/day. "
+                    f"Consider a more modest target, or check that your log is complete."
+                )
+            else:
+                warnings.append(
+                    f"A safe time frame for this goal is at least {safe_days} days "
+                    f"(about {safe_days / 7:.1f} weeks)."
+                )
+        return warnings
+
     def recommend_calories_optimized(self):
         def objective(calories):
             weight = self._current_weight

@@ -65,3 +65,23 @@ def test_loading_demo_twice_rejects_duplicates(monkeypatch, capsys):
     out = capsys.readouterr().out
     assert "Added 20 of 20 demo entries" in out
     assert "Added 0 of 20 demo entries" in out
+
+
+def test_plan_goal_prints_disclaimer(monkeypatch, capsys):
+    feed_input(monkeypatch, ["7", "5", "196.8", "190", "60", "8"])
+    cli.main()
+    out = capsys.readouterr().out
+    assert "not medical advice" in out
+    assert "Warning:" not in out  # a moderate goal is not flagged
+
+
+def test_plan_goal_warns_about_unsafe_loss(monkeypatch, capsys):
+    # 50 lb in 30 days: floored at the safe minimum, with a warning and a safe time frame.
+    feed_input(monkeypatch, ["7", "5", "196.8", "146.8", "30", "8"])
+    cli.main()
+    out = capsys.readouterr().out
+    assert "Recommended Intake (Algebraic): 1200" in out
+    assert "Recommended Intake (Optimized): 1200" in out
+    assert "Warning: Losing 50.0 lbs in 30 days" in out
+    assert "at least 175 days" in out
+    assert "not medical advice" in out

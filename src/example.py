@@ -61,4 +61,7 @@ if __name__ == "__main__":
     print(f'\n--- Goal Planning ---')
     print(f'To achieve a weight of {planner._target_weight} lbs in {planner._time_frame} days:')
     print(f'Your Recommended Daily Caloric Intake (Algebraic): {intake_reccomendation:.0f} calories/day')
-    print(f'Your Optimized Daily Caloric Intake (Nonlinear): {intake_optimization:.0f} calories/day\n')
+    print(f'Your Optimized Daily Caloric Intake (Nonlinear): {intake_optimization:.0f} calories/day')
+    for warning in planner.safety_warnings():
+        print(f'Warning: {warning}')
+    print('(Estimates only, not medical advice.)\n')
