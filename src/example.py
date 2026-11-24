@@ -25,7 +25,8 @@ if __name__ == "__main__":
     print(f"Average Daily Calories: {log.average_calories():.0f}\n")
     print(f'--- End File Loading Demo ---')
 
-    # Example: add_entry validates each entry and returns False when it is rejected.
+    # Example: add_entry validates each entry and returns False when it is rejected;
+    # rejection_reason says why.
     # Each of these fails a different check, so the log above is left unchanged.
     invalid_entries = [
         DailyEntry(datetime(2025, 7, 20), weight=196.8, calories=2200),  # date already logged
@@ -35,7 +36,7 @@ if __name__ == "__main__":
     print(f'\n--- Quick Demo: Adding Entries with Validation ---')
     for entry in invalid_entries:
         if not log.add_entry(entry):
-            print(f"Invalid entry skipped: {entry}")
+            print(f"Invalid entry skipped: {entry}: {log.rejection_reason(entry)}")
 
     calculator = MaintenanceCalculator(log)
     maintenance = calculator.maintenance_calculator()

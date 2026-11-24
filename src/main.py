@@ -2,10 +2,12 @@
 
 from .util.file_loader import FileLoader
 from .entry import CaloriesLog, DailyEntry, MaintenanceCalculator, GoalPlanner, TrendAnalyzer
+from collections import Counter
 from datetime import datetime
 from pathlib import Path
 import argparse
 import logging
+import math
 
 DEMO_DATA = Path(__file__).parent / "data" / "sample_data.csv"
 
@@ -30,9 +32,14 @@ def configure_logging(verbose: bool = False) -> None:
 def prompt_float(prompt: str) -> float:
     while True:
         try:
-            return float(input(prompt).strip())
+            value = float(input(prompt).strip())
         except ValueError:
             print("Please enter a valid number.")
+            continue
+        if not math.isfinite(value):  # float() accepts "nan" and "inf"
+            print("Please enter a valid number.")
+            continue
+        return value
 
 
 def prompt_int(prompt: str, minimum: int = None) -> int:
@@ -54,6 +61,23 @@ def prompt_date(prompt: str) -> datetime:
             return datetime.strptime(input(prompt).strip(), "%Y-%m-%d")
         except ValueError:
             print("Please enter a date in YYYY-MM-DD format.")
+
+
+def add_entries(log: CaloriesLog, entries) -> tuple[int, Counter]:
+    """Add each entry to the log; return how many were added and a count of rejection reasons."""
+    added = 0
+    skipped = Counter()
+    for entry in entries:
+        if log.add_entry(entry):
+            added += 1
+        else:
+            skipped[log.rejection_reason(entry)] += 1
+    return added, skipped
+
+
+def print_skipped(skipped: Counter) -> None:
+    for reason, count in skipped.most_common():
+        print(f"  Skipped {count}: {reason}")
 
 
 def main():
@@ -82,15 +106,16 @@ def main():
                 if log.add_entry(entry):
                     print("\nEntry added.")
                 else:
-                    print("\nEntry rejected (failed validation).")
+                    print(f"\nEntry rejected: {log.rejection_reason(entry)}.")
 
             elif choice == "2":
                 # Load from file
                 filepath = input("Enter file path: ").strip()
                 try:
                     entries = FileLoader.load_file(filepath)
-                    added = sum(1 for e in entries if log.add_entry(e))
+                    added, skipped = add_entries(log, entries)
                     print(f"\nLoaded {added} of {len(entries)} entries from {filepath}")
+                    print_skipped(skipped)
                 except Exception as e:
                     print(f"\nError loading file: {e}")
 
@@ -148,8 +173,9 @@ def main():
                 # Demo data: the bundled 20-day sample, enough for a stable estimate
                 print("\nLoading demo entries...")
                 demo_entries = FileLoader.load_file(str(DEMO_DATA))
-                added = sum(1 for e in demo_entries if log.add_entry(e))
+                added, skipped = add_entries(log, demo_entries)
                 print(f"Added {added} of {len(demo_entries)} demo entries. Try viewing summary or calculating maintenance.")
+                print_skipped(skipped)
 
             elif choice == "8":
                 print("\nGoodbye!")

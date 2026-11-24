@@ -100,3 +100,56 @@ def test_configure_logging_levels(monkeypatch, verbose, level):
     monkeypatch.setattr(logging, "basicConfig", lambda **kwargs: calls.append(kwargs))
     cli.configure_logging(verbose)
     assert calls[0]["level"] == level
+
+
+def test_manual_entry_rejection_shows_reason(monkeypatch, capsys):
+    feed_input(monkeypatch, ["7", "1", "2025-08-01", "500", "2200", "8"])
+    cli.main()
+    out = capsys.readouterr().out
+    assert "Entry rejected: weight change too large" in out
+
+
+def test_file_load_reports_skip_reasons(monkeypatch, capsys, tmp_path):
+    path = tmp_path / "a.csv"
+    path.write_text("date,weight,calories\n2025-07-01,200,2200\n2025-09-01,190,300\n")
+    feed_input(monkeypatch, ["7", "2", str(path), "8"])
+    cli.main()
+    out = capsys.readouterr().out
+    assert "Loaded 0 of 2 entries" in out
+    assert "Skipped 1: an entry for that date already exists" in out
+    assert "Skipped 1: calories out of range" in out
+
+
+def test_prompt_float_rejects_nan_and_inf(monkeypatch, capsys):
+    feed_input(monkeypatch, ["nan", "inf", "-inf", "abc", "180.5"])
+    assert cli.prompt_float("Weight: ") == 180.5
+    assert capsys.readouterr().out.count("valid number") == 4
+
+
+def test_plan_goal_warns_about_extreme_gain(monkeypatch, capsys):
+    feed_input(monkeypatch, ["7", "5", "150", "300", "5", "8"])
+    cli.main()
+    captured = capsys.readouterr()
+    assert "Recommended Intake (Algebraic): 5000" in captured.out
+    assert "Warning: Reaching 300 lbs in 5 days would require eating more than 5000" in captured.out
+    assert "realistic time frame" in captured.out
+
+
+@pytest.mark.parametrize("answers", [
+    ["7", "5", "196.8", "146.8", "30", "8"],   # unsafe loss
+    ["7", "5", "150", "300", "5", "8"],        # extreme gain
+])
+def test_unsafe_goals_log_nothing_at_default_level(monkeypatch, capsys, answers):
+    # stdout warnings are enough; nothing (in particular no target weight) is logged.
+    records = []
+    handler = logging.Handler(level=logging.WARNING)
+    handler.emit = records.append
+    root = logging.getLogger()
+    root.addHandler(handler)
+    try:
+        feed_input(monkeypatch, answers)
+        cli.main()
+    finally:
+        root.removeHandler(handler)
+    assert "Warning:" in capsys.readouterr().out
+    assert records == []
