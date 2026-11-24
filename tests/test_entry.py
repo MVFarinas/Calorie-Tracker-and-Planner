@@ -275,3 +275,62 @@ def test_validator_rejects_large_one_day_swing():
     # 6 lb change in a single day is implausible and must be rejected.
     assert log.add_entry(DailyEntry(datetime(2025, 7, 2), 206, 2200)) is False
     assert len(log) == 1
+
+
+def test_validator_rejects_back_filled_outlier():
+    # Day 2 is inserted between two 200 lb days; it is not the latest entry,
+    # but a 30 lb jump from both neighbours must still be rejected.
+    log = make_log([(1, 200, 2200), (3, 200, 2200)])
+    assert log.add_entry(DailyEntry(datetime(2025, 7, 2), 230, 2200)) is False
+    assert len(log) == 2
+
+
+def test_validator_checks_the_following_neighbour():
+    # Plausible versus the day before, implausible versus the day after.
+    log = make_log([(1, 200, 2200), (3, 190, 2200)])
+    assert log.add_entry(DailyEntry(datetime(2025, 7, 2), 204, 2200)) is False
+
+
+def test_validator_accepts_plausible_back_fill():
+    log = make_log([(1, 200, 2200), (3, 199, 2200)])
+    assert log.add_entry(DailyEntry(datetime(2025, 7, 2), 199.5, 2200)) is True
+    assert [e.date.day for e in log] == [1, 2, 3]
+
+
+def test_validator_rejects_large_change_over_multi_day_gap():
+    # 40 lb over 2 days is far beyond 5 lb/day.
+    log = make_log([(1, 200, 2200)])
+    assert log.add_entry(DailyEntry(datetime(2025, 7, 3), 240, 2200)) is False
+
+
+def test_validator_scales_allowed_change_with_day_gap():
+    log = make_log([(1, 200, 2200)])
+    # 9 lb over 2 days is within 5 lb/day * 2 days.
+    assert log.add_entry(DailyEntry(datetime(2025, 7, 3), 191, 2200)) is True
+    # 11 lb over 2 days is not.
+    assert log.add_entry(DailyEntry(datetime(2025, 7, 5), 202, 2200)) is False
+
+
+def test_validator_rejects_large_change_before_earliest_entry():
+    log = make_log([(10, 200, 2200)])
+    assert log.add_entry(DailyEntry(datetime(2025, 7, 9), 180, 2200)) is False
+    assert log.add_entry(DailyEntry(datetime(2025, 7, 9), 197, 2200)) is True
+
+
+# --- DailyEntry types -----------------------------------------------------
+
+@pytest.mark.parametrize("weight", ["200", None, True, False, [200]])
+def test_daily_entry_rejects_non_numeric_weight(weight):
+    with pytest.raises(TypeError):
+        DailyEntry(datetime(2025, 7, 1), weight, 2200)
+
+
+@pytest.mark.parametrize("calories", ["2200", None, True, 2200.0, 2200.9])
+def test_daily_entry_rejects_non_integer_calories(calories):
+    with pytest.raises(TypeError):
+        DailyEntry(datetime(2025, 7, 1), 200, calories)
+
+
+def test_daily_entry_accepts_int_or_float_weight():
+    assert DailyEntry(datetime(2025, 7, 1), 200, 2200).weight == 200
+    assert DailyEntry(datetime(2025, 7, 1), 199.4, 2200).weight == pytest.approx(199.4)

@@ -1,6 +1,7 @@
 from scipy.optimize import minimize_scalar
 from datetime import datetime
 import logging
+import numbers
 import statistics
 
 # Configure root logger ; see info (add entry), warning -- good for debugging
@@ -14,6 +15,10 @@ KCAL_PER_LB = 3500
 # relative to the starting weight.
 ADAPT_KCAL_PER_LB = 10
 
+# Largest plausible change in body weight per day between two weigh-ins; a
+# bigger swing is almost certainly a typo or a unit mix-up.
+MAX_LBS_PER_DAY = 5
+
 # How far (lbs) the optimized plan may miss the target before it is reported
 # as unreachable within GoalPlanner.CALORIE_BOUNDS.
 UNREACHABLE_TOLERANCE_LBS = 0.1
@@ -22,6 +27,11 @@ class DailyEntry:
     def __init__(self, date: datetime, weight: float, calories: int):
         if not isinstance(date, datetime):
             raise TypeError("Date must be a datetime object")
+        # bool is a subclass of int, but True/False is never a real measurement
+        if isinstance(weight, bool) or not isinstance(weight, numbers.Real):
+            raise TypeError(f"Weight must be a number, got {weight!r}")
+        if isinstance(calories, bool) or not isinstance(calories, numbers.Integral):
+            raise TypeError(f"Calories must be a whole number, got {calories!r}")
         self._date = date
         self._weight = weight
         self._calories = calories
@@ -242,13 +252,25 @@ class EntryValidator:
             logging.warning(f'Date is not a datetime object: {entry.date}')
             return False
 
-        if existing_entries and len(existing_entries) > 0:
-            last_entry = existing_entries.last
-            weight_change = abs(entry.weight - last_entry.weight)
-            days_diff = (entry.date - last_entry.date).days
+        # Compare against the chronological neighbours rather than only the latest
+        # entry, so back-filled days are checked too. The allowed change scales
+        # with the number of days between the two weigh-ins.
+        day = entry.date.date()
+        before = after = None
+        for existing in existing_entries or ():
+            if existing.date.date() <= day:
+                before = existing
+            else:
+                after = existing
+                break
 
-            if days_diff == 1 and weight_change > 5:
-                logging.warning(f'Weight change too large for consecutive days: {entry.weight:.1f} lbs in 1 day')
+        for neighbour in (before, after):
+            if neighbour is None:
+                continue
+            day_gap = max(abs((day - neighbour.date.date()).days), 1)
+            weight_change = abs(entry.weight - neighbour.weight)
+            if weight_change > MAX_LBS_PER_DAY * day_gap:
+                logging.warning(f'Weight change too large: {weight_change:.1f} lbs over {day_gap} day(s)')
                 return False
 
         return True
