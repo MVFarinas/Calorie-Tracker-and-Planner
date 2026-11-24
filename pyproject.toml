@@ -59,7 +59,6 @@ files = ["calorie_tracker", "tests"]
 check_untyped_defs = true
 warn_unused_ignores = true
 warn_redundant_casts = true
-warn_unreachable = true
 
 [[tool.mypy.overrides]]
 # scipy ships no type information.

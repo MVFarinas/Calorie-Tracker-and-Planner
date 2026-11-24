@@ -1,21 +1,34 @@
 # main program logic with CLI
 
-from .util.file_loader import FileLoader
-from .util.storage import (DATA_FILE_ENV_VAR, DEFAULT_SETTINGS, EXPORT_FORMATS, StorageError, export_log,
-                           format_date, load_log, load_settings, resolve_data_file, save_log, save_settings,
-                           settings_file_for)
-from .entry import CaloriesLog, DailyEntry, MaintenanceCalculator, GoalPlanner, TrendAnalyzer
-from .chart import DEFAULT_WIDTH, render_weight_chart
-from .units import LBS, format_weight, from_lbs, normalize_unit, to_lbs
-from collections import Counter
-from datetime import datetime
-from pathlib import Path
 import argparse
 import logging
 import math
 import os
 import shutil
 import sys
+from collections import Counter
+from collections.abc import Iterable
+from datetime import datetime
+from pathlib import Path
+
+from .chart import DEFAULT_WIDTH, render_weight_chart
+from .entry import CaloriesLog, DailyEntry, GoalPlanner, MaintenanceCalculator, TrendAnalyzer
+from .units import LBS, format_weight, from_lbs, normalize_unit, to_lbs
+from .util.file_loader import FileLoader
+from .util.storage import (
+    DATA_FILE_ENV_VAR,
+    DEFAULT_SETTINGS,
+    EXPORT_FORMATS,
+    StorageError,
+    export_log,
+    format_date,
+    load_log,
+    load_settings,
+    resolve_data_file,
+    save_log,
+    save_settings,
+    settings_file_for,
+)
 
 DEMO_DATA = Path(__file__).parent / "data" / "sample_data.csv"
 
@@ -58,7 +71,7 @@ def _unit_arg(value: str) -> str:
     try:
         return normalize_unit(value)
     except ValueError as e:
-        raise argparse.ArgumentTypeError(str(e))
+        raise argparse.ArgumentTypeError(str(e)) from e
 
 
 def configure_logging(verbose: bool = False) -> None:
@@ -80,7 +93,7 @@ def prompt_float(prompt: str) -> float:
         return value
 
 
-def prompt_int(prompt: str, minimum: int = None) -> int:
+def prompt_int(prompt: str, minimum: int | None = None) -> int:
     while True:
         try:
             value = int(input(prompt).strip())
@@ -101,10 +114,10 @@ def prompt_date(prompt: str) -> datetime:
             print("Please enter a date in YYYY-MM-DD format.")
 
 
-def add_entries(log: CaloriesLog, entries) -> tuple[int, Counter]:
+def add_entries(log: CaloriesLog, entries: Iterable[DailyEntry]) -> tuple[int, Counter[str | None]]:
     """Add each entry to the log; return how many were added and a count of rejection reasons."""
     added = 0
-    skipped = Counter()
+    skipped: Counter[str | None] = Counter()
     for entry in entries:
         if log.add_entry(entry):
             added += 1
@@ -113,7 +126,7 @@ def add_entries(log: CaloriesLog, entries) -> tuple[int, Counter]:
     return added, skipped
 
 
-def print_skipped(skipped: Counter) -> None:
+def print_skipped(skipped: Counter[str | None]) -> None:
     for reason, count in skipped.most_common():
         print(f"  Skipped {count}: {reason}")
 
@@ -271,7 +284,7 @@ def analyze_trends(log: CaloriesLog, unit: str = LBS) -> None:
         print("\nInvalid choice. Please select 1 or 2.")
 
 
-def choose_unit(current: str):
+def choose_unit(current: str) -> str | None:
     """Ask which unit to use; returns it, or None (after saying so) for an invalid answer."""
     answer = input(f"Show weights in 'lbs' or 'kg' (currently {current}): ").strip()
     try:
@@ -386,8 +399,14 @@ def main(data_file=None, units=None) -> int:
                 avg_calories = log.average_calories()
                 print("\n--- Summary ---")
                 print(f"Days tracked: {log.days_tracked()}")
-                print(f"Weight change: {from_lbs(weight_change, unit):.2f} {unit}" if weight_change is not None else "Weight change: N/A (need at least 2 entries)")
-                print(f"Average calories: {avg_calories:.0f}" if avg_calories is not None else "Average calories: N/A (no entries)")
+                if weight_change is None:
+                    print("Weight change: N/A (need at least 2 entries)")
+                else:
+                    print(f"Weight change: {from_lbs(weight_change, unit):.2f} {unit}")
+                if avg_calories is None:
+                    print("Average calories: N/A (no entries)")
+                else:
+                    print(f"Average calories: {avg_calories:.0f}")
 
             elif choice == "4":
                 # Maintenance calories
@@ -424,7 +443,8 @@ def main(data_file=None, units=None) -> int:
                 print("\nLoading demo entries...")
                 demo_entries = FileLoader.load_file(str(DEMO_DATA))
                 added, skipped = add_entries(log, demo_entries)
-                print(f"Added {added} of {len(demo_entries)} demo entries. Try viewing summary or calculating maintenance.")
+                print(f"Added {added} of {len(demo_entries)} demo entries. "
+                      "Try viewing summary or calculating maintenance.")
                 print_skipped(skipped)
                 if added:
                     save()

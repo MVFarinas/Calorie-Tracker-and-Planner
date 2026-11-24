@@ -1,9 +1,14 @@
-from scipy.optimize import minimize_scalar
-from datetime import datetime
+from __future__ import annotations
+
 import logging
 import math
 import numbers
 import statistics
+from collections.abc import Iterable, Iterator
+from datetime import date as Date
+from datetime import datetime
+
+from scipy.optimize import minimize_scalar
 
 from .units import KG, LBS, from_lbs, normalize_unit
 
@@ -49,14 +54,19 @@ STABLE_LBS_PER_DAY = 0.05
 # as unreachable within GoalPlanner.CALORIE_BOUNDS.
 UNREACHABLE_TOLERANCE_LBS = 0.1
 
+def _is_number(value: object, kind: type) -> bool:
+    # bool is a subclass of int, but True/False is never a real measurement.
+    # Taking `object` keeps type checkers from treating the check as always true.
+    return isinstance(value, kind) and not isinstance(value, bool)
+
+
 class DailyEntry:
     def __init__(self, date: datetime, weight: float, calories: int):
         if not isinstance(date, datetime):
             raise TypeError("Date must be a datetime object")
-        # bool is a subclass of int, but True/False is never a real measurement
-        if isinstance(weight, bool) or not isinstance(weight, numbers.Real):
+        if not _is_number(weight, numbers.Real):
             raise TypeError(f"Weight must be a number, got {weight!r}")
-        if isinstance(calories, bool) or not isinstance(calories, numbers.Integral):
+        if not _is_number(calories, numbers.Integral):
             raise TypeError(f"Calories must be a whole number, got {calories!r}")
         self._date = date
         self._weight = weight
@@ -64,35 +74,35 @@ class DailyEntry:
 
     #introduce property decorators for getter method
     @property
-    def date(self):
+    def date(self) -> datetime:
         return self._date
 
     @property
-    def weight(self):
+    def weight(self) -> float:
         return self._weight
 
     @property
-    def calories(self):
+    def calories(self) -> int:
         return self._calories
-    
+
     def __str__(self) -> str:
         return f"DailyEntry({self._date.strftime('%Y-%m-%d')}, {self._weight}lbs, {self._calories}cals)"
 
 class Node:
     def __init__(self, data: DailyEntry):
         self._data = data
-        self._next = None
+        self._next: Node | None = None
 
 class LinkedList:
     def __init__(self):
-        self._head = None
-        self._tail = None
-        self._length = 0 
+        self._head: Node | None = None
+        self._tail: Node | None = None
+        self._length = 0
 
     def append (self, data:DailyEntry):
         new_node = Node(data)
         # If the list is empty, set the new node as both head and tail
-        if not self._head:
+        if self._head is None or self._tail is None:
             self._head = new_node
             self._tail = new_node
 
@@ -106,7 +116,7 @@ class LinkedList:
         # the earliest entry and the tail the latest, regardless of insertion order.
         # Entries with an equal date preserve their insertion order (stable).
         new_node = Node(data)
-        if not self._head:
+        if self._head is None or self._tail is None:
             self._head = new_node
             self._tail = new_node
         elif data.date < self._head._data.date:
@@ -117,7 +127,7 @@ class LinkedList:
             self._tail = new_node
         else:
             current = self._head
-            while current._next and current._next._data.date <= data.date:
+            while current._next is not None and current._next._data.date <= data.date:
                 current = current._next
             new_node._next = current._next
             current._next = new_node
@@ -142,7 +152,7 @@ class LinkedList:
         self._length -= 1
         return True
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[DailyEntry]:
         current = self._head
         while current:
             yield current._data
@@ -152,11 +162,11 @@ class LinkedList:
         return self._length
 
     @property
-    def first(self) -> DailyEntry:
+    def first(self) -> DailyEntry | None:
         return self._head._data if self._head else None
 
     @property
-    def last(self) -> DailyEntry:
+    def last(self) -> DailyEntry | None:
         return self._tail._data if self._tail else None
 
 class CaloriesLog:
@@ -164,7 +174,7 @@ class CaloriesLog:
         self._entries = LinkedList()
         self._dates = set()  # calendar days already logged, for duplicate detection
 
-    def rejection_reason(self, entry: DailyEntry):
+    def rejection_reason(self, entry: DailyEntry) -> str | None:
         """Short reason why add_entry would reject this entry, or None if it would be added.
         The reason never includes the entry's weight or calories."""
         # One entry per calendar day; a second one would skew every estimate.
@@ -183,18 +193,18 @@ class CaloriesLog:
         return True
 
     @staticmethod
-    def _day(date):
+    def _day(date: Date) -> Date:
         # Accept a datetime or a plain date; entries are keyed by calendar day.
         return date.date() if isinstance(date, datetime) else date
 
-    def get_entry(self, date):
+    def get_entry(self, date: Date) -> DailyEntry | None:
         """The entry logged for this calendar day, or None."""
         day = self._day(date)
         if day not in self._dates:
             return None
         return next(entry for entry in self._entries if entry.date.date() == day)
 
-    def remove_entry(self, date):
+    def remove_entry(self, date: Date) -> DailyEntry | None:
         """Remove the entry for this calendar day; return it, or None if there was none."""
         entry = self.get_entry(date)
         if entry is None:
@@ -204,7 +214,7 @@ class CaloriesLog:
         logger.debug("Removed entry: %s", entry)
         return entry
 
-    def update_rejection_reason(self, date, weight, calories):
+    def update_rejection_reason(self, date: Date, weight: float, calories: int) -> str | None:
         """Short reason why update_entry would reject these values, or None if it would apply them."""
         existing = self.get_entry(date)
         if existing is None:
@@ -214,7 +224,7 @@ class CaloriesLog:
         others = [entry for entry in self._entries if entry is not existing]
         return EntryValidator.rejection_reason(replacement, others)
 
-    def update_entry(self, date, weight, calories) -> bool:
+    def update_entry(self, date: Date, weight: float, calories: int) -> bool:
         """Replace the weight and calories logged for this calendar day after
         re-validating them. Returns False, leaving the log unchanged, when there
         is no entry for that day or the new values are rejected."""
@@ -223,6 +233,7 @@ class CaloriesLog:
             logger.debug("Rejected update for %s (%s)", self._day(date), reason)
             return False
         existing = self.get_entry(date)
+        assert existing is not None  # update_rejection_reason checked it exists
         replacement = DailyEntry(existing.date, weight, calories)
         # Same date, so remove + insert_sorted puts it back in the same position.
         self._entries.remove(existing)
@@ -231,30 +242,33 @@ class CaloriesLog:
         return True
 
     # Calculate average calories using all entries (None when there is no data)
-    def average_calories(self):
+    def average_calories(self) -> float | None:
         if len(self._entries) == 0:
             return None
         return sum(entry.calories for entry in self._entries) / len(self._entries)
 
     # Calculate weight difference (start - end); None when there are fewer than 2 entries
-    def weight_difference(self):
-        if len(self._entries) < 2: #need a head and tail to calculate difference
+    def weight_difference(self) -> float | None:
+        first, last = self._entries.first, self._entries.last
+        if len(self._entries) < 2 or first is None or last is None:  # need a head and tail
             return None
-        return self._entries.first.weight - self._entries.last.weight #start weight - end weight
+        return first.weight - last.weight  # start weight - end weight
 
     # Calculate days tracked
-    def days_tracked(self):
-        if len(self._entries) < 2: #need a head and tail to calculate days
+    def days_tracked(self) -> int:
+        first, last = self._entries.first, self._entries.last
+        if len(self._entries) < 2 or first is None or last is None:  # need a head and tail
             return len(self._entries)
-        return (self._entries.last.date - self._entries.first.date).days + 1
+        return (last.date - first.date).days + 1
 
     # Least-squares slope of weight vs. day offset, in lbs/day (positive = gaining).
     # Uses every weigh-in, so one noisy reading can't dominate the estimate.
     # None when there are fewer than 2 distinct dates.
-    def weight_slope(self):
-        if len(self._entries) < 2:
+    def weight_slope(self) -> float | None:
+        first = self._entries.first
+        if len(self._entries) < 2 or first is None:
             return None
-        start = self._entries.first.date.date()
+        start = first.date.date()
         days = [(entry.date.date() - start).days for entry in self._entries]
         if len(set(days)) < 2:
             return None
@@ -274,14 +288,14 @@ class CaloriesLog:
         return len(self._entries)
 
     # Allow iteration over the log
-    def __iter__(self):
+    def __iter__(self) -> Iterator[DailyEntry]:
         yield from self._entries
 
     # Get List of all entries
     def get_entries_list(self) -> list[DailyEntry]:
         return list(self._entries)
 
-class MaintenanceCalculator: 
+class MaintenanceCalculator:
     def __init__(self, calories_log: CaloriesLog):
         self._log = calories_log
 
@@ -296,15 +310,16 @@ class MaintenanceCalculator:
 
         # Gaining (slope > 0) means intake was above maintenance, and vice versa.
         return avg_cals - slope * KCAL_PER_LB
-    
+
 class TrendAnalyzer:
     def __init__ (self, log:CaloriesLog):
         self._log = log
 
-    def moving_average(self, window_size, field = "calories"):
+    def moving_average(self, window_size: int, field: str = "calories") -> list[float]:
         if field not in ("calories", "weight"):
             raise ValueError("Field must be 'calories' or 'weight'")
-        
+
+        values: list[float]
         if field == "calories":
             values = [entry.calories for entry in self._log]
         else:
@@ -312,7 +327,7 @@ class TrendAnalyzer:
 
         if len(values) < window_size or window_size <= 0: # Check if the window size is valid
             return []
-        
+
         moving_averages = []
 
         for i in range (len(values) - window_size + 1): # Iterate through the list
@@ -321,7 +336,7 @@ class TrendAnalyzer:
             moving_averages.append(average)
 
         return moving_averages
-    
+
     def trend_weights(self, alpha: float = TREND_ALPHA) -> list[float]:
         """Smoothed trend weight (lbs) for each entry, oldest first: an exponentially
         weighted moving average that starts at the first weigh-in and moves `alpha`
@@ -329,7 +344,7 @@ class TrendAnalyzer:
         without a reading, so after a gap of n days the trend moves
         1 - (1 - alpha)**n of the way instead of jumping a full alpha step per entry.
         Empty when the log is empty."""
-        if isinstance(alpha, bool) or not isinstance(alpha, numbers.Real) or not 0 < alpha <= 1:
+        if not _is_number(alpha, numbers.Real) or not 0 < alpha <= 1:
             raise ValueError(f"alpha must be a number in (0, 1], got {alpha!r}")
         trend = []
         previous = None
@@ -359,7 +374,7 @@ class TrendAnalyzer:
             return f"Losing weight: {shown:.2f} {unit}/day average"
         else:
             return f"Gaining weight: {shown:.2f} {unit}/day average"
-    
+
 class EntryValidator:
     CALORIE_RANGE = (MIN_LOGGED_CALORIES, MAX_DAILY_CALORIES)
     WEIGHT_RANGE = (MIN_WEIGHT_LBS, MAX_WEIGHT_LBS)
@@ -370,11 +385,11 @@ class EntryValidator:
     _WEIGHT_TOLERANCE_LBS = 1e-5
 
     @staticmethod
-    def is_valid(entry: DailyEntry, existing_entries: LinkedList = None) -> bool:
+    def is_valid(entry: DailyEntry, existing_entries: Iterable[DailyEntry] | None = None) -> bool:
         return EntryValidator.rejection_reason(entry, existing_entries) is None
 
     @staticmethod
-    def rejection_reason(entry: DailyEntry, existing_entries: LinkedList = None):
+    def rejection_reason(entry: DailyEntry, existing_entries: Iterable[DailyEntry] | None = None) -> str | None:
         """Short reason why the entry fails validation, or None when it is valid."""
         low, high = EntryValidator.CALORIE_RANGE
         if not (low <= entry.calories <= high):
@@ -450,7 +465,7 @@ class GoalPlanner:
     def maintenance_calories(self) -> float:
         return self._maintenance
 
-    def recommend_calories(self):
+    def recommend_calories(self) -> float:
         # Constant deficit or surplus, kept within CALORIE_BOUNDS (never below the safe minimum).
         low, high = self.CALORIE_BOUNDS
         return min(max(self._required_intake(self._time_frame, adaptive=False), low), high)
@@ -470,7 +485,7 @@ class GoalPlanner:
         loss_per_week = (self._current_weight - self._target_weight) / days * 7
         return loss_per_week > MAX_SAFE_LBS_PER_WEEK + self._EPS_LBS
 
-    def _needed_range(self, days: int):
+    def _needed_range(self, days: int) -> tuple[float, float]:
         # Intake needed by the algebraic and adaptive models, lowest first.
         a = self._required_intake(days, adaptive=False)
         b = self._required_intake(days, adaptive=True)
@@ -487,7 +502,7 @@ class GoalPlanner:
     def _is_unsafe(self, days: int) -> bool:
         return self._is_too_fast(days) or self._is_below_floor(days) or self._is_above_cap(days)
 
-    def min_safe_time_frame(self):
+    def min_safe_time_frame(self) -> int | None:
         """Fewest days in which the target can be reached without losing more than
         MAX_SAFE_LBS_PER_WEEK or eating outside CALORIE_BOUNDS, or None when no
         time frame can (maintenance is too close to, or outside, the bounds)."""
@@ -538,7 +553,8 @@ class GoalPlanner:
 
         if self._is_too_fast(days):
             warnings.append(
-                f"Losing {shown_loss:.1f} {unit} in {days} days is about {shown_loss / days * 7:.{places}f} {unit}/week, "
+                f"Losing {shown_loss:.1f} {unit} in {days} days is about "
+                f"{shown_loss / days * 7:.{places}f} {unit}/week, "
                 f"faster than the {shown_limit:g} {unit}/week generally considered safe."
             )
         if self._is_below_floor(days):
@@ -570,8 +586,8 @@ class GoalPlanner:
                 )
         return warnings
 
-    def recommend_calories_optimized(self):
-        def objective(calories):
+    def recommend_calories_optimized(self) -> float:
+        def objective(calories: float) -> float:
             weight = self._current_weight
 
             for _ in range(self._time_frame):

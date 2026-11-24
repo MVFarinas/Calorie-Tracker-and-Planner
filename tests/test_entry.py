@@ -1,7 +1,6 @@
-from datetime import datetime
-
 import logging
 import math
+from datetime import datetime
 
 import pytest
 
@@ -65,7 +64,7 @@ def test_duplicate_date_is_rejected():
     assert log.add_entry(DailyEntry(datetime(2025, 7, 1), 200, 2200)) is True
     assert log.add_entry(DailyEntry(datetime(2025, 7, 1), 199, 1800)) is False
     assert len(log) == 1
-    assert log.first.calories == 2200  # original entry kept
+    assert log.first is not None and log.first.calories == 2200  # original entry kept
 
 
 def test_duplicate_date_with_different_time_is_rejected():
@@ -274,6 +273,7 @@ def test_floor_warning_without_rate_warning():
 ])
 def test_min_safe_time_frame_is_the_boundary(current, target, time_frame, maintenance):
     safe_days = GoalPlanner(current, target, time_frame, maintenance).min_safe_time_frame()
+    assert safe_days is not None
     at_safe = GoalPlanner(current, target, safe_days, maintenance)
     one_less = GoalPlanner(current, target, safe_days - 1, maintenance)
     assert at_safe.safety_warnings() == []
@@ -286,6 +286,7 @@ def test_floor_based_time_frame_matches_optimizer():
     # being pinned at the floor.
     planner = GoalPlanner(current_weight=200, target_weight=190, time_frame=30, maintenance_calories=1500)
     safe_days = planner.min_safe_time_frame()
+    assert safe_days is not None
     assert safe_days > 10 * 7 / MAX_SAFE_LBS_PER_WEEK  # floor, not rate, is the limit
     optimized = GoalPlanner(200, 190, safe_days, 1500).recommend_calories_optimized()
     assert optimized == pytest.approx(MIN_SAFE_CALORIES, abs=5)
@@ -300,7 +301,8 @@ def test_unreachable_when_maintenance_is_too_low():
 def test_moderate_gain_goal_has_no_safety_warnings():
     planner = GoalPlanner(current_weight=150, target_weight=160, time_frame=60, maintenance_calories=2500)
     assert planner.safety_warnings() == []
-    assert planner.min_safe_time_frame() <= 60
+    safe_days = planner.min_safe_time_frame()
+    assert safe_days is not None and safe_days <= 60
 
 
 def test_extreme_gain_is_capped_and_warned():
@@ -311,6 +313,7 @@ def test_extreme_gain_is_capped_and_warned():
     assert any(f"more than {high} kcal/day" in w for w in warnings)
     assert not any("lbs/week" in w for w in warnings)  # no loss-rate warning for a gain
     safe_days = planner.min_safe_time_frame()
+    assert safe_days is not None
     assert safe_days > 100 * KCAL_PER_LB / (high - 2500)  # at least the algebraic limit
     assert any(f"at least {safe_days} days" in w for w in warnings)
 
@@ -323,6 +326,7 @@ def test_extreme_gain_is_capped_and_warned():
 ])
 def test_gain_min_safe_time_frame_is_the_boundary(current, target, maintenance):
     safe_days = GoalPlanner(current, target, 1, maintenance).min_safe_time_frame()
+    assert safe_days is not None
     assert GoalPlanner(current, target, safe_days, maintenance).safety_warnings() == []
     if safe_days > 1:
         assert GoalPlanner(current, target, safe_days - 1, maintenance).safety_warnings() != []

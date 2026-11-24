@@ -15,7 +15,7 @@ import tempfile
 from pathlib import Path
 
 from ..entry import CaloriesLog
-from ..units import LBS, KG, from_lbs, normalize_unit
+from ..units import KG, LBS, from_lbs, normalize_unit
 from .file_loader import FileLoader
 
 logger = logging.getLogger(__name__)

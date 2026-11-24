@@ -59,7 +59,7 @@ def render_weight_chart(dates, raw, trend, unit: str = LBS,
     columns = [column_of(day) for day in days]
 
     # Trend: a line through every point, filling the columns in between.
-    for index, (column, value) in enumerate(zip(columns, trend)):
+    for index, (column, value) in enumerate(zip(columns, trend, strict=True)):
         if index == 0:
             grid[row_of(value)][column] = TREND_MARK
             continue
@@ -68,7 +68,7 @@ def render_weight_chart(dates, raw, trend, unit: str = LBS,
             fraction = 1 if column == start else (c - start) / (column - start)
             grid[row_of(previous + (value - previous) * fraction)][c] = TREND_MARK
 
-    for column, value in zip(columns, raw):
+    for column, value in zip(columns, raw, strict=True):
         cell = grid[row_of(value)]
         cell[column] = BOTH_MARK if cell[column] in (TREND_MARK, BOTH_MARK) else RAW_MARK
 

@@ -60,7 +60,7 @@ def test_demo_data_gives_sensible_maintenance(monkeypatch, capsys):
     cli.main()
     out = capsys.readouterr().out
     assert "Added 20 of 20 demo entries" in out
-    line = next(l for l in out.splitlines() if "Estimated Maintenance Calories" in l)
+    line = next(text for text in out.splitlines() if "Estimated Maintenance Calories" in text)
     maintenance = int(line.split(":")[1].split()[0])
     assert 2000 <= maintenance <= 3000
 
@@ -146,9 +146,9 @@ def test_plan_goal_warns_about_extreme_gain(monkeypatch, capsys):
 ])
 def test_unsafe_goals_log_nothing_at_default_level(monkeypatch, capsys, answers):
     # stdout warnings are enough; nothing (in particular no target weight) is logged.
-    records = []
+    records: list[logging.LogRecord] = []
     handler = logging.Handler(level=logging.WARNING)
-    handler.emit = records.append
+    monkeypatch.setattr(handler, "emit", records.append)
     root = logging.getLogger()
     root.addHandler(handler)
     try:
@@ -168,7 +168,12 @@ def saved_rows(path):
 
 def test_menu_prompt_matches_number_of_options(monkeypatch, capsys):
     prompts = []
-    monkeypatch.setattr(builtins, "input", lambda prompt="": prompts.append(prompt) or EXIT)
+
+    def fake_input(prompt=""):
+        prompts.append(prompt)
+        return EXIT
+
+    monkeypatch.setattr(builtins, "input", fake_input)
     cli.main()
     assert "13. Exit" in capsys.readouterr().out
     assert prompts == ["Choose an option (1 - 13): "]
@@ -304,7 +309,7 @@ def test_interrupt_exits_cleanly_and_keeps_saved_data(monkeypatch, capsys, tmp_p
         try:
             return next(answers)
         except StopIteration:
-            raise interrupt  # Ctrl-D / Ctrl-C at the delete confirmation
+            raise interrupt from None  # Ctrl-D / Ctrl-C at the delete confirmation
 
     monkeypatch.setattr(builtins, "input", fake_input)
     assert cli.main(path) == 0
@@ -434,7 +439,12 @@ def test_exit_after_successful_saves_does_not_save_again(monkeypatch, tmp_path):
     feed_input(monkeypatch, ["1", "2025-07-01", "200", "2200", EXIT])
     calls = []
     real_save = cli.save_log
-    monkeypatch.setattr(cli, "save_log", lambda log, p: (calls.append(p), real_save(log, p)))
+
+    def recording_save(log, p):
+        calls.append(p)
+        real_save(log, p)
+
+    monkeypatch.setattr(cli, "save_log", recording_save)
     cli.main(path)
     assert calls == [path]
 
@@ -704,7 +714,12 @@ def test_kg_mode_does_not_ask_when_the_file_names_its_unit(monkeypatch, capsys, 
 def test_weight_prompts_name_the_unit(monkeypatch):
     prompts = []
     answers = iter(["7", "1", "2025-08-01", "89", "2200", "5", "89", "85", "60", "9", "2025-07-01", "90", "2200", EXIT])
-    monkeypatch.setattr(builtins, "input", lambda prompt="": prompts.append(prompt) or next(answers))
+
+    def fake_input(prompt=""):
+        prompts.append(prompt)
+        return next(answers)
+
+    monkeypatch.setattr(builtins, "input", fake_input)
     cli.main(units="kg")
     weight_prompts = [p for p in prompts if "weight" in p]
     assert weight_prompts == ["Enter weight (kg): ", "Enter current weight (kg): ",

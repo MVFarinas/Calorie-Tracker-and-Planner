@@ -1,8 +1,9 @@
 import csv
 import json
 import math
-from pathlib import Path
 from datetime import datetime
+from pathlib import Path
+
 from ..entry import DailyEntry
 from ..units import KG, LBS, kg_to_lbs, normalize_unit
 
@@ -54,7 +55,7 @@ class FileLoader:
             calories = FileLoader._parse_calories(calories_str)
         except (TypeError, ValueError) as e:
             raise ValueError(f'{source}: could not parse entry '
-                             f'(date={date_str!r}, weight={weight_str!r}, calories={calories_str!r}): {e}')
+                             f'(date={date_str!r}, weight={weight_str!r}, calories={calories_str!r}): {e}') from e
         return DailyEntry(date, weight, calories)
 
     @staticmethod
@@ -72,7 +73,7 @@ class FileLoader:
                 try:
                     units.add(normalize_unit(row[key]))
                 except ValueError as e:
-                    raise ValueError(f'{source}: {e}')
+                    raise ValueError(f'{source}: {e}') from e
         if len(units) > 1:
             raise ValueError(f'{source}: weight_unit {row["weight_unit"]!r} conflicts '
                              f'with unit {row["unit"]!r}')
@@ -129,7 +130,7 @@ class FileLoader:
     def _load_csv(filepath: str, default_unit: str) -> tuple[list[DailyEntry], int]:
         entries = []
         assumed = 0
-        with open(filepath, 'r', encoding=ENCODING, newline='') as file:
+        with open(filepath, encoding=ENCODING, newline='') as file:
             reader = csv.DictReader(file)
             if reader.fieldnames:
                 # Header names are matched case-insensitively ("Date" or "date").
@@ -148,7 +149,7 @@ class FileLoader:
     def _load_json(filepath: str, default_unit: str) -> tuple[list[DailyEntry], int]:
         entries = []
         assumed = 0
-        with open(filepath, 'r', encoding=ENCODING) as file:
+        with open(filepath, encoding=ENCODING) as file:
             data = json.load(file)
         if not isinstance(data, list):
             raise ValueError(f'{filepath}: expected a JSON array of entries')
@@ -171,7 +172,7 @@ class FileLoader:
         # separated). Blank lines and lines starting with '#' are ignored, and an
         # optional "date weight calories" header row (any case) is skipped.
         entries = []
-        with open(filepath, 'r', encoding=ENCODING) as file:
+        with open(filepath, encoding=ENCODING) as file:
             for line_no, raw in enumerate(file, start=1):
                 line = raw.strip()
                 if not line or line.startswith('#'):
