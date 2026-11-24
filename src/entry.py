@@ -5,8 +5,9 @@ import math
 import numbers
 import statistics
 
-# Configure root logger ; see info (add entry), warning -- good for debugging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+# Logging is configured by the entry points (main.py, example.py), not here.
+# Messages that include entry data (weight, calories) are DEBUG only.
+logger = logging.getLogger(__name__)
 
 # Energy content of one pound of body weight (standard approximation).
 KCAL_PER_LB = 3500
@@ -130,15 +131,15 @@ class CaloriesLog:
     def add_entry(self, entry: DailyEntry) -> bool: 
         # One entry per calendar day; a second one would skew every estimate.
         if entry.date.date() in self._dates:
-            logging.warning(f"Duplicate date, entry rejected: {entry}")
+            logger.debug("Duplicate date, entry rejected: %s", entry)
             return False
         if EntryValidator.is_valid(entry, self._entries):
             self._entries.insert_sorted(entry)
             self._dates.add(entry.date.date())
-            logging.info(f"Added entry: {entry}")
+            logger.debug("Added entry: %s", entry)
             return True
         else:
-            logging.warning(f"Invalid entry: {entry}")
+            logger.debug("Invalid entry: %s", entry)
             return False
 
     # Calculate average calories using all entries (None when there is no data)
@@ -248,15 +249,15 @@ class EntryValidator:
     @staticmethod
     def is_valid(entry:DailyEntry, existing_entries: LinkedList = None) -> bool:
         if not (800 <= entry.calories <= 5000):
-            logging.warning(f'Calories are out of range: {entry.calories}')
+            logger.debug('Calories are out of range: %s', entry.calories)
             return False
 
         if not (50 <= entry.weight <= 600):
-            logging.warning(f'Weight is out of range: {entry.weight}')
+            logger.debug('Weight is out of range: %s', entry.weight)
             return False
 
         if not isinstance(entry.date, datetime):
-            logging.warning(f'Date is not a datetime object: {entry.date}')
+            logger.debug('Date is not a datetime object: %r', entry.date)
             return False
 
         # Compare against the chronological neighbours rather than only the latest
@@ -277,7 +278,7 @@ class EntryValidator:
             day_gap = max(abs((day - neighbour.date.date()).days), 1)
             weight_change = abs(entry.weight - neighbour.weight)
             if weight_change > MAX_LBS_PER_DAY * day_gap:
-                logging.warning(f'Weight change too large: {weight_change:.1f} lbs over {day_gap} day(s)')
+                logger.debug('Weight change too large: %.1f lbs over %d day(s)', weight_change, day_gap)
                 return False
 
         return True
@@ -404,11 +405,11 @@ class GoalPlanner:
         low, high = self.CALORIE_BOUNDS
         result = minimize_scalar(objective, bounds=(low, high), method='bounded')
         if not result.success:
-            logging.warning(f"Optimization did not converge: {result.message}")
+            logger.warning("Optimization did not converge: %s", result.message)
         # result.fun is the squared miss in lbs; a reachable target is hit almost exactly,
         # so a real miss means the optimum is held back by a calorie bound.
         if result.fun > UNREACHABLE_TOLERANCE_LBS ** 2:
-            logging.warning(
+            logger.warning(
                 f"Target of {self._target_weight} lbs in {self._time_frame} days is not reachable "
                 f"within {low}-{high} kcal/day; recommendation is pinned at the bound"
             )

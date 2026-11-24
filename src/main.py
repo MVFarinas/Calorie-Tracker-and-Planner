@@ -4,11 +4,27 @@ from .util.file_loader import FileLoader
 from .entry import CaloriesLog, DailyEntry, MaintenanceCalculator, GoalPlanner, TrendAnalyzer
 from datetime import datetime
 from pathlib import Path
+import argparse
+import logging
 
 DEMO_DATA = Path(__file__).parent / "data" / "sample_data.csv"
 
 GOAL_DISCLAIMER = ("Note: these are estimates only, not medical advice. Check with a doctor "
                    "or registered dietitian before making big changes to your diet.")
+
+
+def parse_args(argv=None) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(prog="python -m src.main",
+                                     description="Estimate maintenance calories and plan weight goals.")
+    parser.add_argument("-v", "--verbose", action="store_true",
+                        help="show debug logging, including details of every entry added or rejected")
+    return parser.parse_args(argv)
+
+
+def configure_logging(verbose: bool = False) -> None:
+    # Warnings only by default: debug messages include personal weight and calorie data.
+    logging.basicConfig(level=logging.DEBUG if verbose else logging.WARNING,
+                        format="%(levelname)s: %(message)s")
 
 
 def prompt_float(prompt: str) -> float:
@@ -147,4 +163,5 @@ def main():
             break
 
 if __name__ == "__main__":
+    configure_logging(parse_args().verbose)
     main()

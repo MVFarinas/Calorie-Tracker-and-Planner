@@ -1,4 +1,5 @@
 import builtins
+import logging
 
 import pytest
 
@@ -85,3 +86,17 @@ def test_plan_goal_warns_about_unsafe_loss(monkeypatch, capsys):
     assert "Warning: Losing 50.0 lbs in 30 days" in out
     assert "at least 175 days" in out
     assert "not medical advice" in out
+
+
+def test_parse_args_verbose_flag():
+    assert cli.parse_args([]).verbose is False
+    assert cli.parse_args(["-v"]).verbose is True
+    assert cli.parse_args(["--verbose"]).verbose is True
+
+
+@pytest.mark.parametrize("verbose,level", [(False, logging.WARNING), (True, logging.DEBUG)])
+def test_configure_logging_levels(monkeypatch, verbose, level):
+    calls = []
+    monkeypatch.setattr(logging, "basicConfig", lambda **kwargs: calls.append(kwargs))
+    cli.configure_logging(verbose)
+    assert calls[0]["level"] == level

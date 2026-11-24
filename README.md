@@ -50,7 +50,7 @@ pip install -r requirements.txt
 Run both entry points as modules from the repository root:
 
 - `python -m src.example` runs a demo of the methods in `entry.py` and the file loading in `file_loader.py`
-- `python -m src.main` launches the CLI to input user data, load file data, and analyze it
+- `python -m src.main` launches the CLI to input user data, load file data, and analyze it. Only warnings are logged by default; pass `-v`/`--verbose` to also log every entry added or rejected (this prints your weight and calorie data)
 
 # Running Tests
 The project uses `pytest`. Install the development dependencies and run the suite from the repository root:

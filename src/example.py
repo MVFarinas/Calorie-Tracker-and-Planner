@@ -1,5 +1,6 @@
 from pathlib import Path
 from datetime import datetime
+import logging
 from .entry import CaloriesLog, DailyEntry, MaintenanceCalculator, GoalPlanner, TrendAnalyzer
 from .util.file_loader import FileLoader
 
@@ -10,6 +11,7 @@ A quick demo script to showcase the functionality of the CaloriesLog, Maintenanc
 '''
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.WARNING, format="%(levelname)s: %(message)s")
     log = CaloriesLog()
 
     print(f'\n--- File Loading Demo ---')

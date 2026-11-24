@@ -414,3 +414,29 @@ def test_daily_entry_rejects_non_integer_calories(calories):
 def test_daily_entry_accepts_int_or_float_weight():
     assert DailyEntry(datetime(2025, 7, 1), 200, 2200).weight == 200
     assert DailyEntry(datetime(2025, 7, 1), 199.4, 2200).weight == pytest.approx(199.4)
+
+
+# --- Logging --------------------------------------------------------------
+
+def test_importing_entry_does_not_configure_logging():
+    import subprocess
+    import sys
+    from pathlib import Path
+
+    code = ("import logging, src.entry; root = logging.getLogger(); "
+            "print(len(root.handlers), root.level)")
+    result = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True,
+                            cwd=Path(__file__).resolve().parent.parent, check=True)
+    assert result.stdout.split() == ["0", str(logging.WARNING)]
+
+
+def test_entry_contents_are_logged_at_debug_only(caplog):
+    with caplog.at_level(logging.DEBUG, logger="src.entry"):
+        log = CaloriesLog()
+        log.add_entry(DailyEntry(datetime(2025, 7, 1), 213.4, 2200))   # added
+        log.add_entry(DailyEntry(datetime(2025, 7, 1), 213.4, 2200))   # duplicate
+        log.add_entry(DailyEntry(datetime(2025, 7, 2), 213.4, 300))    # invalid
+    entry_records = [r for r in caplog.records if "213.4" in r.getMessage()]
+    assert len(entry_records) == 3
+    assert all(r.levelno == logging.DEBUG for r in entry_records)
+    assert all(r.name == "src.entry" for r in caplog.records)
