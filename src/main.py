@@ -2,18 +2,44 @@
 
 from .util.file_loader import FileLoader
 from .entry import CaloriesLog, DailyEntry, MaintenanceCalculator, GoalPlanner, TrendAnalyzer
+from collections import Counter
 from datetime import datetime
 from pathlib import Path
+import argparse
+import logging
+import math
 
 DEMO_DATA = Path(__file__).parent / "data" / "sample_data.csv"
+
+GOAL_DISCLAIMER = ("Note: these are estimates only, not medical advice. Check with a doctor "
+                   "or registered dietitian before making big changes to your diet.")
+
+
+def parse_args(argv=None) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(prog="python -m src.main",
+                                     description="Estimate maintenance calories and plan weight goals.")
+    parser.add_argument("-v", "--verbose", action="store_true",
+                        help="show debug logging, including details of every entry added or rejected")
+    return parser.parse_args(argv)
+
+
+def configure_logging(verbose: bool = False) -> None:
+    # Warnings only by default: debug messages include personal weight and calorie data.
+    logging.basicConfig(level=logging.DEBUG if verbose else logging.WARNING,
+                        format="%(levelname)s: %(message)s")
 
 
 def prompt_float(prompt: str) -> float:
     while True:
         try:
-            return float(input(prompt).strip())
+            value = float(input(prompt).strip())
         except ValueError:
             print("Please enter a valid number.")
+            continue
+        if not math.isfinite(value):  # float() accepts "nan" and "inf"
+            print("Please enter a valid number.")
+            continue
+        return value
 
 
 def prompt_int(prompt: str, minimum: int = None) -> int:
@@ -35,6 +61,23 @@ def prompt_date(prompt: str) -> datetime:
             return datetime.strptime(input(prompt).strip(), "%Y-%m-%d")
         except ValueError:
             print("Please enter a date in YYYY-MM-DD format.")
+
+
+def add_entries(log: CaloriesLog, entries) -> tuple[int, Counter]:
+    """Add each entry to the log; return how many were added and a count of rejection reasons."""
+    added = 0
+    skipped = Counter()
+    for entry in entries:
+        if log.add_entry(entry):
+            added += 1
+        else:
+            skipped[log.rejection_reason(entry)] += 1
+    return added, skipped
+
+
+def print_skipped(skipped: Counter) -> None:
+    for reason, count in skipped.most_common():
+        print(f"  Skipped {count}: {reason}")
 
 
 def main():
@@ -63,15 +106,16 @@ def main():
                 if log.add_entry(entry):
                     print("\nEntry added.")
                 else:
-                    print("\nEntry rejected (failed validation).")
+                    print(f"\nEntry rejected: {log.rejection_reason(entry)}.")
 
             elif choice == "2":
                 # Load from file
                 filepath = input("Enter file path: ").strip()
                 try:
                     entries = FileLoader.load_file(filepath)
-                    added = sum(1 for e in entries if log.add_entry(e))
+                    added, skipped = add_entries(log, entries)
                     print(f"\nLoaded {added} of {len(entries)} entries from {filepath}")
+                    print_skipped(skipped)
                 except Exception as e:
                     print(f"\nError loading file: {e}")
 
@@ -106,6 +150,9 @@ def main():
                     planner = GoalPlanner(current_weight, target_weight, time_frame, maintenance)
                     print(f"\nRecommended Intake (Algebraic): {planner.recommend_calories():.0f}")
                     print(f"Recommended Intake (Optimized): {planner.recommend_calories_optimized():.0f}")
+                    for warning in planner.safety_warnings():
+                        print(f"Warning: {warning}")
+                    print(f"\n{GOAL_DISCLAIMER}")
 
             elif choice == "6":
                 # Trend analysis
@@ -126,8 +173,9 @@ def main():
                 # Demo data: the bundled 20-day sample, enough for a stable estimate
                 print("\nLoading demo entries...")
                 demo_entries = FileLoader.load_file(str(DEMO_DATA))
-                added = sum(1 for e in demo_entries if log.add_entry(e))
+                added, skipped = add_entries(log, demo_entries)
                 print(f"Added {added} of {len(demo_entries)} demo entries. Try viewing summary or calculating maintenance.")
+                print_skipped(skipped)
 
             elif choice == "8":
                 print("\nGoodbye!")
@@ -141,4 +189,5 @@ def main():
             break
 
 if __name__ == "__main__":
+    configure_logging(parse_args().verbose)
     main()

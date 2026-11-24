@@ -17,11 +17,14 @@ The project supports importing data from `.csv` and `.json`, performs analysis w
 
   - Ensures realistic entries (`EntryValidator`)
   - Rejects a second entry for a date that is already logged
+  - Rejects weight changes of more than 5 lbs per day compared with the entries just before and after the new date (so back-filled days are checked too)
+  - The CLI says why an entry was rejected (e.g. duplicate date, calories out of range), and how many rows of a file were skipped for each reason
 
 - Caloric Recommendations:
 
   - Algebraic approach (linear math)
   - Optimized approach using scipy.optimize (nonlinear metabolic adaptation model)
+  - Safety guardrails: recommendations stay between 1200 and 5000 kcal/day, and goals that need more than 2 lbs/week of loss (or intake outside that range) are flagged with the shortest safe time frame
 
 - File Import (read-only):
   - Import data from `.csv`, `.json`, and `.txt` files using `file_loader.py`
@@ -30,7 +33,10 @@ The project supports importing data from `.csv` and `.json`, performs analysis w
 - **Maintenance calories** (`MaintenanceCalculator`): fits a least-squares line through every weigh-in (weight vs. day) to get the rate of weight change in lbs/day, then
   `maintenance = average calories - slope * 3500` (about 3500 kcal per lb of body weight). Using every weigh-in instead of only the first and last keeps a single noisy reading (e.g. water weight) from dominating. At least two different dates are needed. The weight trend in `TrendAnalyzer` uses the same slope.
 - **Algebraic recommendation**: `maintenance + (target - current) * 3500 / days`, i.e. a constant deficit or surplus.
-- **Optimized recommendation** (metabolic adaptation): simulates the plan day by day, with maintenance shifting by `ADAPT_KCAL_PER_LB` (10 kcal/day) for every lb lost or gained relative to the starting weight, and uses `scipy.optimize.minimize_scalar` to find the constant daily intake (800 to 5000 kcal) that lands on the target weight. For losing weight it is slightly below the algebraic value, and for gaining slightly above. If the target can't be reached within those bounds (the best plan misses it by more than 0.1 lb), a warning is logged and the bound is returned.
+- **Optimized recommendation** (metabolic adaptation): simulates the plan day by day, with maintenance shifting by `ADAPT_KCAL_PER_LB` (10 kcal/day) for every lb lost or gained relative to the starting weight, and uses `scipy.optimize.minimize_scalar` to find the constant daily intake (1200 to 5000 kcal) that lands on the target weight. For losing weight it is slightly below the algebraic value, and for gaining slightly above. If the target can't be reached within those bounds (the best plan misses it by more than 0.1 lb), the bound is returned (and the goal is flagged by the safety guardrails below).
+- **Safety guardrails** (`GoalPlanner.safety_warnings`): both recommendations stay within `GoalPlanner.CALORIE_BOUNDS`, whose floor is `MIN_SAFE_CALORIES` (1200 kcal/day) and whose cap is 5000 kcal/day. A goal is flagged when it needs more than `MAX_SAFE_LBS_PER_WEEK` (2 lbs/week) of loss or would need intake outside those bounds, and the warning includes the shortest time frame that avoids all of these limits (`GoalPlanner.min_safe_time_frame`). The CLI prints these warnings with every goal plan.
+
+> **Disclaimer:** all numbers from this project are estimates only, not medical advice. Talk to a doctor or registered dietitian before making significant changes to your diet, especially if you are pregnant, have a medical condition, or are under 18.
 
 # Requirements
 - Python 3.10+
@@ -45,7 +51,7 @@ pip install -r requirements.txt
 Run both entry points as modules from the repository root:
 
 - `python -m src.example` runs a demo of the methods in `entry.py` and the file loading in `file_loader.py`
-- `python -m src.main` launches the CLI to input user data, load file data, and analyze it
+- `python -m src.main` launches the CLI to input user data, load file data, and analyze it. Only warnings are logged by default; pass `-v`/`--verbose` to also log every entry added or rejected (this prints your weight and calorie data)
 
 # Running Tests
 The project uses `pytest`. Install the development dependencies and run the suite from the repository root:

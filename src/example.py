@@ -1,5 +1,6 @@
 from pathlib import Path
 from datetime import datetime
+import logging
 from .entry import CaloriesLog, DailyEntry, MaintenanceCalculator, GoalPlanner, TrendAnalyzer
 from .util.file_loader import FileLoader
 
@@ -10,6 +11,7 @@ A quick demo script to showcase the functionality of the CaloriesLog, Maintenanc
 '''
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.WARNING, format="%(levelname)s: %(message)s")
     log = CaloriesLog()
 
     print(f'\n--- File Loading Demo ---')
@@ -23,7 +25,8 @@ if __name__ == "__main__":
     print(f"Average Daily Calories: {log.average_calories():.0f}\n")
     print(f'--- End File Loading Demo ---')
 
-    # Example: add_entry validates each entry and returns False when it is rejected.
+    # Example: add_entry validates each entry and returns False when it is rejected;
+    # rejection_reason says why.
     # Each of these fails a different check, so the log above is left unchanged.
     invalid_entries = [
         DailyEntry(datetime(2025, 7, 20), weight=196.8, calories=2200),  # date already logged
@@ -33,7 +36,7 @@ if __name__ == "__main__":
     print(f'\n--- Quick Demo: Adding Entries with Validation ---')
     for entry in invalid_entries:
         if not log.add_entry(entry):
-            print(f"Invalid entry skipped: {entry}")
+            print(f"Invalid entry skipped: {entry}: {log.rejection_reason(entry)}")
 
     calculator = MaintenanceCalculator(log)
     maintenance = calculator.maintenance_calculator()
@@ -61,4 +64,7 @@ if __name__ == "__main__":
     print(f'\n--- Goal Planning ---')
     print(f'To achieve a weight of {planner._target_weight} lbs in {planner._time_frame} days:')
     print(f'Your Recommended Daily Caloric Intake (Algebraic): {intake_reccomendation:.0f} calories/day')
-    print(f'Your Optimized Daily Caloric Intake (Nonlinear): {intake_optimization:.0f} calories/day\n')
+    print(f'Your Optimized Daily Caloric Intake (Nonlinear): {intake_optimization:.0f} calories/day')
+    for warning in planner.safety_warnings():
+        print(f'Warning: {warning}')
+    print('(Estimates only, not medical advice.)\n')

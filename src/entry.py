@@ -1,10 +1,13 @@
 from scipy.optimize import minimize_scalar
 from datetime import datetime
 import logging
+import math
+import numbers
 import statistics
 
-# Configure root logger ; see info (add entry), warning -- good for debugging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+# Logging is configured by the entry points (main.py, example.py), not here.
+# Messages that include entry data (weight, calories) are DEBUG only.
+logger = logging.getLogger(__name__)
 
 # Energy content of one pound of body weight (standard approximation).
 KCAL_PER_LB = 3500
@@ -14,6 +17,16 @@ KCAL_PER_LB = 3500
 # relative to the starting weight.
 ADAPT_KCAL_PER_LB = 10
 
+# Largest plausible change in body weight per day between two weigh-ins; a
+# bigger swing is almost certainly a typo or a unit mix-up.
+MAX_LBS_PER_DAY = 5
+
+# Health guardrails for goal planning (common general guidelines, not medical
+# advice): recommendations never go below MIN_SAFE_CALORIES, and a plan that
+# loses more than MAX_SAFE_LBS_PER_WEEK is flagged by GoalPlanner.safety_warnings.
+MIN_SAFE_CALORIES = 1200
+MAX_SAFE_LBS_PER_WEEK = 2
+
 # How far (lbs) the optimized plan may miss the target before it is reported
 # as unreachable within GoalPlanner.CALORIE_BOUNDS.
 UNREACHABLE_TOLERANCE_LBS = 0.1
@@ -22,6 +35,11 @@ class DailyEntry:
     def __init__(self, date: datetime, weight: float, calories: int):
         if not isinstance(date, datetime):
             raise TypeError("Date must be a datetime object")
+        # bool is a subclass of int, but True/False is never a real measurement
+        if isinstance(weight, bool) or not isinstance(weight, numbers.Real):
+            raise TypeError(f"Weight must be a number, got {weight!r}")
+        if isinstance(calories, bool) or not isinstance(calories, numbers.Integral):
+            raise TypeError(f"Calories must be a whole number, got {calories!r}")
         self._date = date
         self._weight = weight
         self._calories = calories
@@ -109,20 +127,23 @@ class CaloriesLog:
         self._entries = LinkedList()
         self._dates = set()  # calendar days already logged, for duplicate detection
 
-    #pull data from DailyEntry class
-    def add_entry(self, entry: DailyEntry) -> bool: 
+    def rejection_reason(self, entry: DailyEntry):
+        """Short reason why add_entry would reject this entry, or None if it would be added.
+        The reason never includes the entry's weight or calories."""
         # One entry per calendar day; a second one would skew every estimate.
         if entry.date.date() in self._dates:
-            logging.warning(f"Duplicate date, entry rejected: {entry}")
+            return "an entry for that date already exists"
+        return EntryValidator.rejection_reason(entry, self._entries)
+
+    def add_entry(self, entry: DailyEntry) -> bool:
+        reason = self.rejection_reason(entry)
+        if reason is not None:
+            logger.debug("Rejected entry (%s): %s", reason, entry)
             return False
-        if EntryValidator.is_valid(entry, self._entries):
-            self._entries.insert_sorted(entry)
-            self._dates.add(entry.date.date())
-            logging.info(f"Added entry: {entry}")
-            return True
-        else:
-            logging.warning(f"Invalid entry: {entry}")
-            return False
+        self._entries.insert_sorted(entry)
+        self._dates.add(entry.date.date())
+        logger.debug("Added entry: %s", entry)
+        return True
 
     # Calculate average calories using all entries (None when there is no data)
     def average_calories(self):
@@ -228,33 +249,57 @@ class TrendAnalyzer:
             return f"Gaining weight: {abs(rate):.2f} lbs/day average"
     
 class EntryValidator:
-    @staticmethod
-    def is_valid(entry:DailyEntry, existing_entries: LinkedList = None) -> bool:
-        if not (800 <= entry.calories <= 5000):
-            logging.warning(f'Calories are out of range: {entry.calories}')
-            return False
+    CALORIE_RANGE = (800, 5000)
+    WEIGHT_RANGE = (50, 600)
 
-        if not (50 <= entry.weight <= 600):
-            logging.warning(f'Weight is out of range: {entry.weight}')
-            return False
+    @staticmethod
+    def is_valid(entry: DailyEntry, existing_entries: LinkedList = None) -> bool:
+        return EntryValidator.rejection_reason(entry, existing_entries) is None
+
+    @staticmethod
+    def rejection_reason(entry: DailyEntry, existing_entries: LinkedList = None):
+        """Short reason why the entry fails validation, or None when it is valid."""
+        low, high = EntryValidator.CALORIE_RANGE
+        if not (low <= entry.calories <= high):
+            return f"calories out of range ({low}-{high})"
+
+        low, high = EntryValidator.WEIGHT_RANGE
+        if not (low <= entry.weight <= high):
+            return f"weight out of range ({low}-{high} lbs)"
 
         if not isinstance(entry.date, datetime):
-            logging.warning(f'Date is not a datetime object: {entry.date}')
-            return False
+            return "date is not a datetime"
 
-        if existing_entries and len(existing_entries) > 0:
-            last_entry = existing_entries.last
-            weight_change = abs(entry.weight - last_entry.weight)
-            days_diff = (entry.date - last_entry.date).days
+        # Compare against the chronological neighbours rather than only the latest
+        # entry, so back-filled days are checked too. The allowed change scales
+        # with the number of days between the two weigh-ins.
+        day = entry.date.date()
+        before = after = None
+        for existing in existing_entries or ():
+            if existing.date.date() <= day:
+                before = existing
+            else:
+                after = existing
+                break
 
-            if days_diff == 1 and weight_change > 5:
-                logging.warning(f'Weight change too large for consecutive days: {entry.weight:.1f} lbs in 1 day')
-                return False
+        for neighbour in (before, after):
+            if neighbour is None:
+                continue
+            day_gap = max(abs((day - neighbour.date.date()).days), 1)
+            if abs(entry.weight - neighbour.weight) > MAX_LBS_PER_DAY * day_gap:
+                return (f"weight change too large compared with a nearby entry "
+                        f"(more than {MAX_LBS_PER_DAY} lbs per day)")
 
-        return True
+        return None
 
 class GoalPlanner:
-    CALORIE_BOUNDS = (800, 5000)  # realistic daily intake range for recommendations
+    # Daily intake range for recommendations; the floor is the safety minimum.
+    CALORIE_BOUNDS = (MIN_SAFE_CALORIES, 5000)
+
+    # Safety margin added to every comparison below so tiny floating-point
+    # errors can't flip a plan that sits exactly on a limit.
+    _EPS_LBS = 1e-9
+    _EPS_KCAL = 1e-6
 
     def __init__ (self, current_weight: float, target_weight: float, time_frame: int, maintenance_calories: float):
         # bool is an int subclass but never a meaningful number of days
@@ -262,18 +307,128 @@ class GoalPlanner:
             raise TypeError(f"Time frame must be a whole number of days, got {time_frame!r}")
         if time_frame <= 0:
             raise ValueError(f"Time frame must be a positive number of days, got {time_frame}")
+        for name, value in (("Current weight", current_weight), ("Target weight", target_weight),
+                            ("Maintenance calories", maintenance_calories)):
+            if not math.isfinite(value):
+                raise ValueError(f"{name} must be a finite number, got {value!r}")
         self._current_weight = current_weight
         self._target_weight = target_weight
         self._time_frame = time_frame
         self._maintenance = maintenance_calories
 
     def recommend_calories(self):
+        # Constant deficit or surplus, kept within CALORIE_BOUNDS (never below the safe minimum).
+        low, high = self.CALORIE_BOUNDS
+        return min(max(self._required_intake(self._time_frame, adaptive=False), low), high)
+
+    def _required_intake(self, days: int, adaptive: bool) -> float:
+        # Constant daily intake that reaches the target in `days`, ignoring any bounds.
         weight_diff = self._target_weight - self._current_weight
-        total_calories = weight_diff * KCAL_PER_LB
-        daily_calories = total_calories / self._time_frame
-        
-        return self._maintenance + daily_calories
-    
+        if not adaptive or ADAPT_KCAL_PER_LB == 0:
+            return self._maintenance + weight_diff * KCAL_PER_LB / days
+        # Closed form of the day-by-day model in recommend_calories_optimized:
+        # eating c kcal/day changes weight by (c - maintenance) / k * (1 - r**t)
+        # after t days, with k = ADAPT_KCAL_PER_LB and r = 1 - k / KCAL_PER_LB.
+        r = 1 - ADAPT_KCAL_PER_LB / KCAL_PER_LB
+        return self._maintenance + weight_diff * ADAPT_KCAL_PER_LB / (1 - r ** days)
+
+    def _is_too_fast(self, days: int) -> bool:
+        loss_per_week = (self._current_weight - self._target_weight) / days * 7
+        return loss_per_week > MAX_SAFE_LBS_PER_WEEK + self._EPS_LBS
+
+    def _needed_range(self, days: int):
+        # Intake needed by the algebraic and adaptive models, lowest first.
+        a = self._required_intake(days, adaptive=False)
+        b = self._required_intake(days, adaptive=True)
+        return min(a, b), max(a, b)
+
+    def _is_below_floor(self, days: int) -> bool:
+        # Either model needing less than the floor means the capped plan falls short.
+        return self._needed_range(days)[0] < self.CALORIE_BOUNDS[0] - self._EPS_KCAL
+
+    def _is_above_cap(self, days: int) -> bool:
+        # Either model needing more than the upper bound means the plan falls short.
+        return self._needed_range(days)[1] > self.CALORIE_BOUNDS[1] + self._EPS_KCAL
+
+    def _is_unsafe(self, days: int) -> bool:
+        return self._is_too_fast(days) or self._is_below_floor(days) or self._is_above_cap(days)
+
+    def min_safe_time_frame(self):
+        """Fewest days in which the target can be reached without losing more than
+        MAX_SAFE_LBS_PER_WEEK or eating outside CALORIE_BOUNDS, or None when no
+        time frame can (maintenance is too close to, or outside, the bounds)."""
+        low, high = self.CALORIE_BOUNDS
+        change = abs(self._target_weight - self._current_weight)
+        losing = self._target_weight < self._current_weight
+        if change == 0:
+            return None if self._is_unsafe(1) else 1
+
+        # Largest daily deficit (losing) or surplus (gaining) the bounds allow.
+        spare = self._maintenance - low if losing else high - self._maintenance
+        k = ADAPT_KCAL_PER_LB
+        if spare <= 0 or change * k >= spare:
+            return None
+        if k == 0:
+            bound_days = change * KCAL_PER_LB / spare
+        else:
+            # Solve _required_intake(days, adaptive=True) == the bound for days;
+            # the algebraic model always needs fewer days than this.
+            bound_days = math.log(1 - change * k / spare) / math.log(1 - k / KCAL_PER_LB)
+        rate_days = change * 7 / MAX_SAFE_LBS_PER_WEEK if losing else 0
+
+        # Round up, then step past any floating-point error so the answer agrees
+        # exactly with the checks used by safety_warnings. If a few extra days
+        # don't help, the other bound is in the way and no time frame works.
+        days = max(1, math.ceil(max(bound_days, rate_days)))
+        while days > 1 and not self._is_unsafe(days - 1):
+            days -= 1
+        for _ in range(10):
+            if not self._is_unsafe(days):
+                return days
+            days += 1
+        return None
+
+    def safety_warnings(self) -> list[str]:
+        """Human-readable warnings for an unsafe goal; empty when the plan is fine."""
+        warnings = []
+        low, high = self.CALORIE_BOUNDS
+        days = self._time_frame
+        loss = self._current_weight - self._target_weight
+
+        if self._is_too_fast(days):
+            warnings.append(
+                f"Losing {loss:.1f} lbs in {days} days is about {loss / days * 7:.1f} lbs/week, "
+                f"faster than the {MAX_SAFE_LBS_PER_WEEK} lbs/week generally considered safe."
+            )
+        if self._is_below_floor(days):
+            warnings.append(
+                f"Reaching {self._target_weight:g} lbs in {days} days would require eating below "
+                f"{low} kcal/day. Recommendations never go below {low} "
+                f"kcal/day, so the target will not be reached in that time."
+            )
+        if self._is_above_cap(days):
+            warnings.append(
+                f"Reaching {self._target_weight:g} lbs in {days} days would require eating more than "
+                f"{high} kcal/day. Recommendations never go above {high} "
+                f"kcal/day, so the target will not be reached in that time."
+            )
+
+        if warnings:
+            safe_days = self.min_safe_time_frame()
+            if safe_days is None:
+                warnings.append(
+                    f"With an estimated maintenance of {self._maintenance:.0f} kcal/day, this target "
+                    f"can't be reached while eating between {low} and {high} kcal/day. "
+                    f"Consider a more modest target, or check that your log is complete."
+                )
+            else:
+                kind = "safe" if loss > 0 else "realistic"
+                warnings.append(
+                    f"A {kind} time frame for this goal is at least {safe_days} days "
+                    f"(about {safe_days / 7:.1f} weeks)."
+                )
+        return warnings
+
     def recommend_calories_optimized(self):
         def objective(calories):
             weight = self._current_weight
@@ -290,12 +445,12 @@ class GoalPlanner:
         low, high = self.CALORIE_BOUNDS
         result = minimize_scalar(objective, bounds=(low, high), method='bounded')
         if not result.success:
-            logging.warning(f"Optimization did not converge: {result.message}")
+            logger.warning("Optimization did not converge: %s", result.message)
         # result.fun is the squared miss in lbs; a reachable target is hit almost exactly,
         # so a real miss means the optimum is held back by a calorie bound.
+        # safety_warnings() reports this to the user, so it is only logged at INFO
+        # (and without the target weight, which is personal data).
         if result.fun > UNREACHABLE_TOLERANCE_LBS ** 2:
-            logging.warning(
-                f"Target of {self._target_weight} lbs in {self._time_frame} days is not reachable "
-                f"within {low}-{high} kcal/day; recommendation is pinned at the bound"
-            )
+            logger.info("Target is not reachable within %s-%s kcal/day in %d days; "
+                        "recommendation is pinned at the bound", low, high, self._time_frame)
         return float(result.x)
