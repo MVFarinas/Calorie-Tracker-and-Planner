@@ -2,6 +2,7 @@ from pathlib import Path
 from datetime import datetime
 import logging
 from .entry import CaloriesLog, DailyEntry, MaintenanceCalculator, GoalPlanner, TrendAnalyzer
+from .chart import render_weight_chart
 from .util.file_loader import FileLoader
 
 DATA_DIR = Path(__file__).parent / "data"
@@ -51,6 +52,11 @@ if __name__ == "__main__":
     print(f"Days tracked: {days_tracked:.0f} days")
     print(f"Maintenance Estimate: {maintenance:.0f} calories per day")
     print(f"Weight trend: {analyzer.weight_trend()}")
+
+    # Smoothed trend weight (exponentially weighted moving average) vs. the scale
+    trend = analyzer.trend_weights()
+    print(f"Trend weight: {trend[-1]:.1f} lbs (scale: {log.last().weight} lbs)\n")
+    print(render_weight_chart([e.date for e in log], [e.weight for e in log], trend))
 
     planner = GoalPlanner(
         current_weight = log.last().weight,

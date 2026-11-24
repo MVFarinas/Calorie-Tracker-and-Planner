@@ -411,6 +411,20 @@ def test_validator_rejects_large_one_day_swing():
     assert len(log) == 1
 
 
+@pytest.mark.parametrize("weight,valid", [
+    (50 - 1e-6, True), (600 + 1e-6, True),       # conversion noise on a limit
+    (50 - 1e-3, False), (600 + 1e-3, False),
+])
+def test_validator_weight_range_tolerance(weight, valid):
+    assert EntryValidator.is_valid(DailyEntry(datetime(2025, 7, 1), weight, 2200)) is valid
+
+
+@pytest.mark.parametrize("step,valid", [(5 + 2e-6, True), (5.001, False)])
+def test_validator_daily_change_tolerance(step, valid):
+    log = make_log([(1, 200, 2200)])
+    assert log.add_entry(DailyEntry(datetime(2025, 7, 2), 200 + step, 2200)) is valid
+
+
 def test_validator_rejects_back_filled_outlier():
     # Day 2 is inserted between two 200 lb days; it is not the latest entry,
     # but a 30 lb jump from both neighbours must still be rejected.
@@ -624,3 +638,52 @@ def test_update_rejects_bad_types_without_changing_log():
     with pytest.raises(TypeError):
         log.update_entry(datetime(2025, 7, 1), 200, 2200.5)
     assert log.first().calories == 2200
+
+
+# --- Smoothed trend weight (EWMA) -----------------------------------------
+
+def test_trend_weights_known_series():
+    # Hacker's Diet: trend += 0.1 * (reading - trend), starting at the first reading.
+    log = make_log([(1, 200, 2200), (2, 196, 2200), (3, 198, 2200), (4, 194, 2200)])
+    assert len(log) == 4
+    assert TrendAnalyzer(log).trend_weights() == pytest.approx([200, 199.6, 199.44, 198.896])
+
+
+def test_trend_weights_custom_alpha():
+    log = make_log([(1, 200, 2200), (2, 196, 2200), (3, 196, 2200)])
+    assert len(log) == 3
+    assert TrendAnalyzer(log).trend_weights(alpha=0.5) == pytest.approx([200, 198, 197])
+    assert TrendAnalyzer(log).trend_weights(alpha=1) == [200, 196, 196]
+
+
+def test_trend_weights_treat_missed_days_as_days_without_readings():
+    # Two days after the last weigh-in the trend has decayed twice: 1 - 0.9**2 = 0.19.
+    log = make_log([(1, 200, 2200), (3, 190, 2200)])
+    assert len(log) == 2
+    assert TrendAnalyzer(log).trend_weights() == pytest.approx([200, 198.1])
+
+
+def test_trend_weights_empty_and_single_entry():
+    assert TrendAnalyzer(CaloriesLog()).trend_weights() == []
+    assert TrendAnalyzer(make_log([(1, 180.5, 2000)])).trend_weights() == [180.5]
+
+
+@pytest.mark.parametrize("alpha", [0, -0.1, 1.5, True, "0.1", math.nan])
+def test_trend_weights_rejects_bad_alpha(alpha):
+    with pytest.raises(ValueError):
+        TrendAnalyzer(CaloriesLog()).trend_weights(alpha)
+
+
+def test_weight_trend_in_kg():
+    losing = make_log([(1, 205, 2000), (11, 200, 2000)])  # 0.5 lbs/day
+    assert TrendAnalyzer(losing).weight_trend("kg") == "Losing weight: 0.23 kg/day average"
+
+
+def test_safety_warnings_in_kg():
+    planner = GoalPlanner(196.8, 146.8, 30, 2400)
+    warnings = planner.safety_warnings("kg")
+    assert warnings[0].startswith("Losing 22.7 kg in 30 days is about 5.29 kg/week, "
+                                  "faster than the 0.91 kg/week")
+    assert "lbs" not in " ".join(warnings)
+    # The checks themselves don't depend on the display unit.
+    assert len(warnings) == len(planner.safety_warnings())

@@ -1,14 +1,20 @@
 # main program logic with CLI
 
 from .util.file_loader import FileLoader
-from .util.storage import DATA_FILE_ENV_VAR, StorageError, format_date, load_log, resolve_data_file, save_log
+from .util.storage import (DATA_FILE_ENV_VAR, DEFAULT_SETTINGS, EXPORT_FORMATS, StorageError, export_log,
+                           format_date, load_log, load_settings, resolve_data_file, save_log, save_settings,
+                           settings_file_for)
 from .entry import CaloriesLog, DailyEntry, MaintenanceCalculator, GoalPlanner, TrendAnalyzer
+from .chart import DEFAULT_WIDTH, render_weight_chart
+from .units import LBS, format_weight, from_lbs, normalize_unit, to_lbs
 from collections import Counter
 from datetime import datetime
 from pathlib import Path
 import argparse
 import logging
 import math
+import os
+import shutil
 import sys
 
 DEMO_DATA = Path(__file__).parent / "data" / "sample_data.csv"
@@ -24,6 +30,8 @@ MENU_OPTIONS = (
     "List entries",
     "Edit entry",
     "Delete entry",
+    "Export entries",
+    "Change weight unit",
     "Exit",
 )
 EXIT_CHOICE = str(len(MENU_OPTIONS))
@@ -40,7 +48,17 @@ def parse_args(argv=None) -> argparse.Namespace:
     parser.add_argument("--data-file", metavar="PATH",
                         help=f"JSON file the log is saved to and loaded from (default: ${DATA_FILE_ENV_VAR} "
                              "if set, otherwise ~/.calorie_tracker/log.json)")
+    parser.add_argument("--units", type=_unit_arg, metavar="{lbs,kg}",
+                        help="show and enter weights in this unit for this session "
+                             "(default: the unit last chosen in the menu, otherwise lbs)")
     return parser.parse_args(argv)
+
+
+def _unit_arg(value: str) -> str:
+    try:
+        return normalize_unit(value)
+    except ValueError as e:
+        raise argparse.ArgumentTypeError(str(e))
 
 
 def configure_logging(verbose: bool = False) -> None:
@@ -100,20 +118,38 @@ def print_skipped(skipped: Counter) -> None:
         print(f"  Skipped {count}: {reason}")
 
 
-def format_entry(entry: DailyEntry) -> str:
-    return f"{format_date(entry.date)}  {entry.weight:g} lbs  {entry.calories} cals"
+def ask_file_unit(count: int) -> str:
+    """Ask which unit `count` weights that don't name their unit are in; Enter means lbs."""
+    noun = "weight doesn't" if count == 1 else "weights don't"
+    while True:
+        answer = input(f"{count} {noun} say their unit. Are they in lbs or kg? (lbs/kg, Enter for lbs): ").strip()
+        if not answer:
+            return LBS
+        try:
+            return normalize_unit(answer)
+        except ValueError:
+            print("Please enter 'lbs' or 'kg'.")
 
 
-def list_entries(log: CaloriesLog) -> None:
+def prompt_weight(prompt: str, unit: str) -> float:
+    """Ask for a weight in `unit` and return it in lbs, the unit entries are stored in."""
+    return to_lbs(prompt_float(f"{prompt} ({unit}): "), unit)
+
+
+def format_entry(entry: DailyEntry, unit: str = LBS) -> str:
+    return f"{format_date(entry.date)}  {format_weight(entry.weight, unit)}  {entry.calories} cals"
+
+
+def list_entries(log: CaloriesLog, unit: str = LBS) -> None:
     if len(log) == 0:
         print("\nNo entries yet.")
         return
     print(f"\n--- Entries ({len(log)}) ---")
     for entry in log:
-        print(f"  {format_entry(entry)}")
+        print(f"  {format_entry(entry, unit)}")
 
 
-def edit_entry(log: CaloriesLog) -> bool:
+def edit_entry(log: CaloriesLog, unit: str = LBS) -> bool:
     """Ask for a date and new values; return True when the log was changed."""
     if len(log) == 0:
         print("\nNo entries to edit.")
@@ -123,8 +159,8 @@ def edit_entry(log: CaloriesLog) -> bool:
     if entry is None:
         print(f"\nNo entry for {format_date(date)}.")
         return False
-    print(f"Current: {format_entry(entry)}")
-    weight = prompt_float("Enter new weight (lbs): ")
+    print(f"Current: {format_entry(entry, unit)}")
+    weight = prompt_weight("Enter new weight", unit)
     calories = prompt_int("Enter new calories: ")
     if log.update_entry(date, weight, calories):
         print("\nEntry updated.")
@@ -133,7 +169,7 @@ def edit_entry(log: CaloriesLog) -> bool:
     return False
 
 
-def delete_entry(log: CaloriesLog) -> bool:
+def delete_entry(log: CaloriesLog, unit: str = LBS) -> bool:
     """Ask for a date and confirmation; return True when the log was changed."""
     if len(log) == 0:
         print("\nNo entries to delete.")
@@ -143,7 +179,7 @@ def delete_entry(log: CaloriesLog) -> bool:
     if entry is None:
         print(f"\nNo entry for {format_date(date)}.")
         return False
-    answer = input(f"Delete {format_entry(entry)}? (y/N): ").strip().lower()
+    answer = input(f"Delete {format_entry(entry, unit)}? (y/N): ").strip().lower()
     if answer not in ("y", "yes"):
         print("\nNot deleted.")
         return False
@@ -152,10 +188,104 @@ def delete_entry(log: CaloriesLog) -> bool:
     return True
 
 
-def main(data_file=None) -> int:
+def export_entries(log: CaloriesLog, unit: str = LBS, data_file=None) -> None:
+    """Ask for a .csv or .json path and write every entry to it, asking before
+    replacing an existing file."""
+    if len(log) == 0:
+        print("\nNo entries to export.")
+        return
+    answer = input("Enter export file path (.csv or .json): ").strip()
+    if not answer:
+        print("\nNothing exported.")
+        return
+    path = Path(answer).expanduser()
+    if path.suffix.lower() not in EXPORT_FORMATS:
+        print("\nThe export file must end in .csv or .json.")
+        return
+    # The path checks raise ValueError too, e.g. for a NUL character in the path.
+    try:
+        if data_file is not None and os.path.realpath(path) in (
+                os.path.realpath(data_file), os.path.realpath(settings_file_for(data_file))):
+            print("\nThat file holds your saved log or settings; choose another path.")
+            return
+        if os.path.isdir(path):
+            print(f"\n{path} is a folder; enter a file path.")
+            return
+        if os.path.lexists(path):
+            confirm = input(f"{path} already exists. Overwrite it? (y/N): ").strip().lower()
+            if confirm not in ("y", "yes"):
+                print("\nNothing exported.")
+                return
+        export_log(log, path, unit)
+    except (OSError, ValueError) as e:
+        print(f"\nCould not export to {path}: {e}")
+        return
+    noun = "entry" if len(log) == 1 else "entries"
+    print(f"\nExported {len(log)} {noun} to {path} (weights in {unit}).")
+
+
+def chart_width() -> int:
+    # Fit narrower terminals, but never go past ~80 columns.
+    return min(DEFAULT_WIDTH, shutil.get_terminal_size().columns - 1)
+
+
+def analyze_trends(log: CaloriesLog, unit: str = LBS) -> None:
+    analyzer = TrendAnalyzer(log)
+    print("\n--- Trend Analysis ---")
+    print("1. Moving average")
+    print("2. Weight trend chart")
+    choice = input("Choose an option (1 - 2): ").strip()
+
+    if choice == "1":
+        window = prompt_int("Enter moving average window size: ", minimum=1)
+        field = input("Analyze 'calories' or 'weight': ").strip().lower()
+        if field not in ("calories", "weight"):
+            print("\nPlease choose 'calories' or 'weight'.")
+            return
+        averages = analyzer.moving_average(window, field)
+        if not averages:
+            print("\nNot enough data for moving average.")
+            return
+        if field == "weight":
+            averages = [from_lbs(value, unit) for value in averages]
+            print(f"\nMoving averages for weight in {unit} (window={window}):")
+        else:
+            print(f"\nMoving averages for {field} (window={window}):")
+        print([round(val, 2) for val in averages])
+
+    elif choice == "2":
+        if len(log) == 0:
+            print("\nNo entries to chart yet.")
+            return
+        entries = log.get_entries_list()
+        trend = analyzer.trend_weights()
+        print()
+        print(render_weight_chart([entry.date for entry in entries], [entry.weight for entry in entries],
+                                  trend, unit, width=chart_width()))
+        print(f"\nLatest trend weight: {format_weight(trend[-1], unit, decimals=1)} "
+              f"(scale: {format_weight(entries[-1].weight, unit, decimals=1)})")
+        if len(log) >= 2:
+            print(f"Overall: {analyzer.weight_trend(unit)}")
+
+    else:
+        print("\nInvalid choice. Please select 1 or 2.")
+
+
+def choose_unit(current: str):
+    """Ask which unit to use; returns it, or None (after saying so) for an invalid answer."""
+    answer = input(f"Show weights in 'lbs' or 'kg' (currently {current}): ").strip()
+    try:
+        return normalize_unit(answer)
+    except ValueError:
+        print(f"\nPlease choose 'lbs' or 'kg'. Still using {current}.")
+        return None
+
+
+def main(data_file=None, units=None) -> int:
     """Run the interactive menu. With data_file, the log is loaded from it at
-    startup and saved back after every change; without it nothing is persisted.
-    Returns the process exit status."""
+    startup and saved back after every change, and the chosen weight unit is kept
+    in a settings file next to it; without it nothing is persisted. `units`
+    overrides the saved unit for this session. Returns the process exit status."""
     if data_file is None:
         log = CaloriesLog()
     else:
@@ -172,6 +302,9 @@ def main(data_file=None) -> int:
             noun = "entry" if len(log) == 1 else "entries"
             print(f"Loaded {len(log)} saved {noun} from {data_file}")
 
+    settings_file = None if data_file is None else settings_file_for(data_file)
+    settings = dict(DEFAULT_SETTINGS) if settings_file is None else load_settings(settings_file)
+    unit = normalize_unit(units) if units is not None else settings["unit"]
     unsaved = False
 
     def save() -> bool:
@@ -187,6 +320,20 @@ def main(data_file=None) -> int:
             return False
         unsaved = False
         return True
+
+    def change_unit():
+        nonlocal unit
+        chosen = choose_unit(unit)
+        if chosen is None:
+            return
+        unit = settings["unit"] = chosen
+        print(f"\nWeights are now shown in {unit}.")
+        if settings_file is None:
+            return
+        try:
+            save_settings(settings, settings_file)
+        except OSError as e:
+            print(f"Warning: could not save the unit preference to {settings_file}: {e}")
 
     def finish():
         # Changes are saved as they are made; retry once if the last save failed.
@@ -205,7 +352,7 @@ def main(data_file=None) -> int:
             if choice == "1":
                 # Manual entry
                 date = prompt_date("Enter date (YYYY-MM-DD): ")
-                weight = prompt_float("Enter weight (lbs): ")
+                weight = prompt_weight("Enter weight", unit)
                 calories = prompt_int("Enter calories: ")
                 entry = DailyEntry(date, weight, calories)
                 if log.add_entry(entry):
@@ -218,7 +365,12 @@ def main(data_file=None) -> int:
                 # Load from file
                 filepath = input("Enter file path: ").strip()
                 try:
-                    entries = FileLoader.load_file(filepath)
+                    entries, unitless = FileLoader.load_file_with_unit_info(filepath)
+                    if unitless and unit != LBS:
+                        # Plain weights default to lbs; a kg user's file may well be in kg.
+                        file_unit = ask_file_unit(unitless)
+                        if file_unit != LBS:
+                            entries = FileLoader.load_file(filepath, default_unit=file_unit)
                     added, skipped = add_entries(log, entries)
                     print(f"\nLoaded {added} of {len(entries)} entries from {filepath}")
                     print_skipped(skipped)
@@ -234,7 +386,7 @@ def main(data_file=None) -> int:
                 avg_calories = log.average_calories()
                 print("\n--- Summary ---")
                 print(f"Days tracked: {log.days_tracked()}")
-                print(f"Weight change: {weight_change:.2f} lbs" if weight_change is not None else "Weight change: N/A (need at least 2 entries)")
+                print(f"Weight change: {from_lbs(weight_change, unit):.2f} {unit}" if weight_change is not None else "Weight change: N/A (need at least 2 entries)")
                 print(f"Average calories: {avg_calories:.0f}" if avg_calories is not None else "Average calories: N/A (no entries)")
 
             elif choice == "4":
@@ -253,30 +405,19 @@ def main(data_file=None) -> int:
                 if maintenance is None:
                     print("\nNot enough data to plan a goal yet (need at least 2 entries to estimate maintenance).")
                 else:
-                    current_weight = prompt_float("Enter current weight (lbs): ")
-                    target_weight = prompt_float("Enter target weight (lbs): ")
+                    current_weight = prompt_weight("Enter current weight", unit)
+                    target_weight = prompt_weight("Enter target weight", unit)
                     time_frame = prompt_int("Enter time frame (days): ", minimum=1)
                     planner = GoalPlanner(current_weight, target_weight, time_frame, maintenance)
                     print(f"\nRecommended Intake (Algebraic): {planner.recommend_calories():.0f}")
                     print(f"Recommended Intake (Optimized): {planner.recommend_calories_optimized():.0f}")
-                    for warning in planner.safety_warnings():
+                    for warning in planner.safety_warnings(unit):
                         print(f"Warning: {warning}")
                     print(f"\n{GOAL_DISCLAIMER}")
 
             elif choice == "6":
                 # Trend analysis
-                analyzer = TrendAnalyzer(log)
-                window = prompt_int("Enter moving average window size: ", minimum=1)
-                field = input("Analyze 'calories' or 'weight': ").strip().lower()
-                if field not in ("calories", "weight"):
-                    print("\nPlease choose 'calories' or 'weight'.")
-                    continue
-                averages = analyzer.moving_average(window, field)
-                if averages:
-                    print(f"\nMoving averages for {field} (window={window}):")
-                    print([round(val, 2) for val in averages])
-                else:
-                    print("\nNot enough data for moving average.")
+                analyze_trends(log, unit)
 
             elif choice == "7":
                 # Demo data: the bundled 20-day sample, enough for a stable estimate
@@ -289,15 +430,21 @@ def main(data_file=None) -> int:
                     save()
 
             elif choice == "8":
-                list_entries(log)
+                list_entries(log, unit)
 
             elif choice == "9":
-                if edit_entry(log):
+                if edit_entry(log, unit):
                     save()
 
             elif choice == "10":
-                if delete_entry(log):
+                if delete_entry(log, unit):
                     save()
+
+            elif choice == "11":
+                export_entries(log, unit, data_file)
+
+            elif choice == "12":
+                change_unit()
 
             elif choice == EXIT_CHOICE:
                 finish()
@@ -321,7 +468,7 @@ def run(argv=None) -> int:
     except ValueError as e:
         print(f"Error: {e}", file=sys.stderr)
         return 2
-    return main(data_file)
+    return main(data_file, args.units)
 
 
 if __name__ == "__main__":
