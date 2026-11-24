@@ -18,40 +18,20 @@ if __name__ == "__main__":
     #entries = FileLoader.load_file(str(DATA_DIR / "sample_data.json"))
 
     print("\n--- Loading entries ---")
-    for entry in entries:
-        log.add_entry(entry)
-
-    maintenance = MaintenanceCalculator(log)
-    print(f"\nAverage Daily Calories: {maintenance.maintenance_calculator():.0f}\n")
+    added = sum(1 for entry in entries if log.add_entry(entry))
+    print(f"\nLoaded {added} of {len(entries)} entries")
+    print(f"Average Daily Calories: {log.average_calories():.0f}\n")
     print(f'--- End File Loading Demo ---')
 
-    # Example: add entries, but validate each one before inserting
-    raw_entries = [
-        DailyEntry(datetime(2025, 7, 1), weight=200, calories=2200),
-        DailyEntry(datetime(2025, 7, 2), weight=198.8, calories=2200),
-        DailyEntry(datetime(2025, 7, 3), weight=198.2, calories=2150),
-        DailyEntry(datetime(2025, 7, 4), weight=197.9, calories=2100),
-        DailyEntry(datetime(2025, 7, 5), weight=197.7, calories=2100),
-        DailyEntry(datetime(2025, 7, 6), weight=197.6, calories=2050),
-        DailyEntry(datetime(2025, 7, 7), weight=197.5, calories=2050),
-        DailyEntry(datetime(2025, 7, 8), weight=197.5, calories=2050),
-        DailyEntry(datetime(2025, 7, 9), weight=197.4, calories=2000),
-        DailyEntry(datetime(2025, 7, 10), weight=197.4, calories=2000),
-        DailyEntry(datetime(2025, 7, 11), weight=197.1, calories=2200),
-        DailyEntry(datetime(2025, 7, 12), weight=197.0, calories=2200),
-        DailyEntry(datetime(2025, 7, 13), weight=197.0, calories=2200),
-        DailyEntry(datetime(2025, 7, 14), weight=197.0, calories=2200),
-        DailyEntry(datetime(2025, 7, 15), weight=196.9, calories=2200),
-        DailyEntry(datetime(2025, 7, 16), weight=196.9, calories=2200),
-        DailyEntry(datetime(2025, 7, 17), weight=196.8, calories=2200),
-        DailyEntry(datetime(2025, 7, 18), weight=196.8, calories=2200),
-        DailyEntry(datetime(2025, 7, 19), weight=196.8, calories=2200),
-        DailyEntry(datetime(2025, 7, 20), weight=196.8, calories=2200),
+    # Example: add_entry validates each entry and returns False when it is rejected.
+    # Each of these fails a different check, so the log above is left unchanged.
+    invalid_entries = [
+        DailyEntry(datetime(2025, 7, 20), weight=196.8, calories=2200),  # date already logged
+        DailyEntry(datetime(2025, 7, 21), weight=196.7, calories=300),   # calories out of range
+        DailyEntry(datetime(2025, 7, 21), weight=203.5, calories=2200),  # >5 lb swing in one day
     ]
     print(f'\n--- Quick Demo: Adding Entries with Validation ---')
-    print("\n--- Loading entries ---")
-    # add_entry validates internally and returns False when an entry is rejected.
-    for entry in raw_entries:
+    for entry in invalid_entries:
         if not log.add_entry(entry):
             print(f"Invalid entry skipped: {entry}")
 
@@ -71,8 +51,8 @@ if __name__ == "__main__":
 
     planner = GoalPlanner(
         current_weight = log.last().weight,
-        target_weight = 215,
-        time_frame = 30, 
+        target_weight = 190,
+        time_frame = 60,
         maintenance_calories = maintenance
     )
 
