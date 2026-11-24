@@ -4,6 +4,7 @@ import math
 from pathlib import Path
 from datetime import datetime
 from ..entry import DailyEntry
+from ..units import KG, LBS, kg_to_lbs, normalize_unit
 
 # Largest input file accepted. Years of daily entries fit in well under 1 MB,
 # so anything bigger is almost certainly the wrong file.
@@ -31,17 +32,45 @@ class FileLoader:
             return FileLoader._load_txt(filepath)
 
     @staticmethod
-    def _make_entry(date_str, weight_str, calories_str, source: str) -> DailyEntry:
+    def _make_entry(date_str, weight_str, calories_str, source: str, unit=LBS) -> DailyEntry:
         # Parse one record into a DailyEntry, raising a clear error that names the
-        # offending file/row instead of a bare KeyError/ValueError.
+        # offending file/row instead of a bare KeyError/ValueError. Weights given
+        # in kg are converted, since entries always hold lbs.
         try:
             date = datetime.strptime(str(date_str).strip(), '%Y-%m-%d')
             weight = FileLoader._parse_weight(weight_str)
+            if normalize_unit(unit) == KG:
+                weight = kg_to_lbs(weight)
             calories = FileLoader._parse_calories(calories_str)
         except (TypeError, ValueError) as e:
             raise ValueError(f'{source}: could not parse entry '
                              f'(date={date_str!r}, weight={weight_str!r}, calories={calories_str!r}): {e}')
         return DailyEntry(date, weight, calories)
+
+    @staticmethod
+    def _is_blank(value) -> bool:
+        return value is None or (isinstance(value, str) and not value.strip())
+
+    @staticmethod
+    def _weight_and_unit(row, source: str):
+        # A record gives its weight as "weight" (lbs unless a "unit" or
+        # "weight_unit" field says otherwise) or as "weight_kg".
+        unit = next((row[key] for key in ('weight_unit', 'unit')
+                     if key in row and not FileLoader._is_blank(row[key])), None)
+        if unit is not None:
+            try:
+                unit = normalize_unit(unit)
+            except ValueError as e:
+                raise ValueError(f'{source}: {e}')
+        has_weight = not FileLoader._is_blank(row.get('weight'))
+        has_kg = not FileLoader._is_blank(row.get('weight_kg'))
+        if has_weight and has_kg:
+            raise ValueError(f'{source}: give either weight or weight_kg, not both')
+        if has_kg:
+            if unit not in (None, KG):
+                raise ValueError(f'{source}: weight_kg conflicts with unit {unit!r}')
+            return row['weight_kg'], KG
+        return row.get('weight'), unit or LBS
 
     @staticmethod
     def _reject_underscores(value, field: str) -> None:
@@ -91,8 +120,9 @@ class FileLoader:
                 reader.fieldnames = [name.strip().lower() for name in reader.fieldnames]
             for line_no, row in enumerate(reader, start=2):  # line 1 is the header
                 FileLoader._require_columns(row, filepath, line_no)
-                entries.append(FileLoader._make_entry(
-                    row['date'], row['weight'], row['calories'], f'{filepath} line {line_no}'))
+                source = f'{filepath} line {line_no}'
+                weight, unit = FileLoader._weight_and_unit(row, source)
+                entries.append(FileLoader._make_entry(row['date'], weight, row['calories'], source, unit))
         return entries
 
     @staticmethod
@@ -107,8 +137,9 @@ class FileLoader:
                 raise ValueError(f'{filepath} (item {index}): expected an object with '
                                  f'date, weight and calories, got {type(row).__name__}')
             FileLoader._require_columns(row, filepath, index)
-            entries.append(FileLoader._make_entry(
-                row['date'], row['weight'], row['calories'], f'{filepath} item {index}'))
+            source = f'{filepath} item {index}'
+            weight, unit = FileLoader._weight_and_unit(row, source)
+            entries.append(FileLoader._make_entry(row['date'], weight, row['calories'], source, unit))
         return entries
 
     @staticmethod
@@ -136,5 +167,8 @@ class FileLoader:
     def _require_columns(row, filepath: str, location) -> None:
         required = ('date', 'weight', 'calories')
         missing = [col for col in required if col not in row or row[col] is None]
+        # A weight_kg field stands in for weight.
+        if 'weight' in missing and row.get('weight_kg') is not None:
+            missing.remove('weight')
         if missing:
             raise ValueError(f'{filepath} ({location}): missing required field(s): {", ".join(missing)}')

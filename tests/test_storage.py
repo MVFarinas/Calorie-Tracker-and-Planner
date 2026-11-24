@@ -12,12 +12,17 @@ from src.util import storage
 from src.util.file_loader import FileLoader
 from src.util.storage import (
     DATA_FILE_ENV_VAR,
+    DEFAULT_SETTINGS,
     StorageError,
     default_data_file,
+    export_log,
     format_date,
     load_log,
+    load_settings,
     resolve_data_file,
     save_log,
+    save_settings,
+    settings_file_for,
 )
 
 ROWS = [(1, 200.0, 2200), (2, 199.4, 2100), (5, 198.6, 2000)]
@@ -262,3 +267,103 @@ def test_data_file_expands_user(isolated_home):
 def test_data_file_must_be_json(tmp_path, name):
     with pytest.raises(ValueError, match=r"\.json"):
         resolve_data_file(str(tmp_path / name), environ={})
+
+
+# --- Export ---------------------------------------------------------------
+
+def rows_of(entries):
+    return [(format_date(e.date), e.weight, e.calories) for e in entries]
+
+
+@pytest.mark.parametrize("name", ["out.csv", "out.json", "OUT.CSV"])
+def test_export_in_lbs_round_trips_exactly(tmp_path, name):
+    log = make_log([(1, 200.0, 2200), (2, 199.4, 2100), (5, 1 / 3 + 198, 2000)])
+    path = tmp_path / name
+    export_log(log, path)
+    assert rows_of(FileLoader.load_file(str(path))) == rows_of(log)
+
+
+@pytest.mark.parametrize("name", ["out.csv", "out.json"])
+def test_export_in_kg_round_trips(tmp_path, name):
+    log = make_log()
+    path = tmp_path / name
+    export_log(log, path, unit="kg")
+    loaded = FileLoader.load_file(str(path))
+    assert [r[0] for r in rows_of(loaded)] == [r[0] for r in rows_of(log)]
+    assert [e.weight for e in loaded] == pytest.approx([e.weight for e in log], abs=1e-5)
+    assert [e.calories for e in loaded] == [e.calories for e in log]
+    # The reloaded entries pass validation again.
+    reloaded = CaloriesLog()
+    assert all(reloaded.add_entry(e) for e in loaded)
+
+
+def test_export_csv_layout_names_the_unit(tmp_path):
+    path = tmp_path / "out.csv"
+    export_log(make_log([(1, 200.0, 2200)]), path, unit="kg")
+    assert path.read_text() == "date,weight,calories,unit\n2025-07-01,90.718474,2200,kg\n"
+
+
+def test_export_json_layout(tmp_path):
+    path = tmp_path / "out.json"
+    export_log(make_log([(1, 200.0, 2200)]), path)
+    assert json.loads(path.read_text()) == [
+        {"date": "2025-07-01", "weight": 200.0, "calories": 2200, "unit": "lbs"}]
+
+
+def test_export_of_saved_log_reloads_into_same_log(tmp_path):
+    # Exported JSON is also a valid data file.
+    path = tmp_path / "out.json"
+    export_log(make_log(), path, unit="kg")
+    assert len(load_log(path)) == len(ROWS)
+
+
+def test_export_rejects_other_extensions(tmp_path):
+    with pytest.raises(ValueError, match=r"\.csv or \.json"):
+        export_log(make_log(), tmp_path / "out.txt")
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_export_does_not_create_folders(tmp_path):
+    with pytest.raises(OSError):
+        export_log(make_log(), tmp_path / "missing" / "out.csv")
+    assert list(tmp_path.iterdir()) == []
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="POSIX permissions only")
+def test_export_is_private(tmp_path):
+    path = tmp_path / "out.csv"
+    export_log(make_log(), path)
+    assert stat.S_IMODE(path.stat().st_mode) == 0o600
+
+
+# --- Settings -------------------------------------------------------------
+
+def test_settings_file_sits_next_to_data_file(tmp_path):
+    assert settings_file_for(tmp_path / "log.json") == tmp_path / "log.settings.json"
+    assert settings_file_for(tmp_path / "My.Log.JSON") == tmp_path / "My.Log.settings.json"
+
+
+def test_missing_settings_give_defaults(tmp_path):
+    assert load_settings(tmp_path / "none.json") == DEFAULT_SETTINGS == {"unit": "lbs"}
+
+
+def test_settings_round_trip(tmp_path):
+    path = tmp_path / "sub" / "log.settings.json"
+    save_settings({"unit": "kg"}, path)
+    assert load_settings(path) == {"unit": "kg"}
+
+
+@pytest.mark.parametrize("text", ["{oops", "[]", '{"unit": "stone"}', '{"unit": 3}', "\xff"])
+def test_bad_settings_fall_back_to_defaults(tmp_path, caplog, text):
+    path = tmp_path / "log.settings.json"
+    path.write_text(text, encoding="latin-1")
+    assert load_settings(path) == DEFAULT_SETTINGS
+    assert "settings file" in caplog.text
+
+
+def test_settings_do_not_change_the_log_schema(tmp_path):
+    path = tmp_path / "log.json"
+    save_log(make_log(), path)
+    save_settings({"unit": "kg"}, settings_file_for(path))
+    assert isinstance(json.loads(path.read_text()), list)
+    assert len(load_log(path)) == len(ROWS)

@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 
 import pytest
@@ -187,3 +188,58 @@ def test_oversized_file_is_rejected(tmp_path, monkeypatch):
 def test_default_size_limit_is_10_mb():
     from src.util import file_loader
     assert file_loader.MAX_FILE_BYTES == 10 * 1024 * 1024
+
+
+# --- Weight units -----------------------------------------------------------
+
+KG_90_5_IN_LBS = 90.5 / 0.45359237
+
+
+def load_text(tmp_path, name, text):
+    p = tmp_path / name
+    p.write_text(text, encoding="utf-8")
+    return FileLoader.load_file(str(p))
+
+
+@pytest.mark.parametrize("header", ["unit", "weight_unit", "Unit"])
+def test_csv_unit_column_converts_kg(tmp_path, header):
+    entries = load_text(tmp_path, "u.csv",
+                        f"date,weight,calories,{header}\n2025-07-01,90.5,2200,kg\n2025-07-02,199,2100,lbs\n")
+    assert entries[0].weight == pytest.approx(KG_90_5_IN_LBS)
+    assert entries[1].weight == 199
+
+
+def test_csv_blank_unit_means_lbs(tmp_path):
+    entries = load_text(tmp_path, "u.csv", "date,weight,calories,unit\n2025-07-01,200,2200,\n")
+    assert entries[0].weight == 200
+
+
+def test_csv_weight_kg_column(tmp_path):
+    entries = load_text(tmp_path, "kg.csv", "date,weight_kg,calories\n2025-07-01,90.5,2200\n")
+    assert entries[0].weight == pytest.approx(KG_90_5_IN_LBS)
+
+
+def test_csv_mixed_weight_and_weight_kg_columns(tmp_path):
+    entries = load_text(tmp_path, "mix.csv",
+                        "date,weight,weight_kg,calories\n2025-07-01,200,,2200\n2025-07-02,,90.5,2100\n")
+    assert entries[0].weight == 200
+    assert entries[1].weight == pytest.approx(KG_90_5_IN_LBS)
+
+
+def test_json_unit_and_weight_kg_fields(tmp_path):
+    data = [{"date": "2025-07-01", "weight": 90.5, "unit": "kg", "calories": 2200},
+            {"date": "2025-07-02", "weight_kg": 90.5, "calories": 2200},
+            {"date": "2025-07-03", "weight": 199, "weight_unit": "LBS", "calories": 2200}]
+    entries = load_text(tmp_path, "u.json", json.dumps(data))
+    assert [e.weight for e in entries] == pytest.approx([KG_90_5_IN_LBS, KG_90_5_IN_LBS, 199])
+
+
+@pytest.mark.parametrize("text,match", [
+    ("date,weight,calories,unit\n2025-07-01,200,2200,stone\n", "unknown weight unit"),
+    ("date,weight,weight_kg,calories\n2025-07-01,200,90,2200\n", "not both"),
+    ("date,weight_kg,calories,unit\n2025-07-01,90,2200,lbs\n", "conflicts"),
+    ("date,calories,unit\n2025-07-01,2200,kg\n", "missing required field"),
+])
+def test_csv_unit_errors(tmp_path, text, match):
+    with pytest.raises(ValueError, match=match):
+        load_text(tmp_path, "bad.csv", text)

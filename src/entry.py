@@ -5,6 +5,8 @@ import math
 import numbers
 import statistics
 
+from .units import KG, LBS, from_lbs, normalize_unit
+
 # Logging is configured by the entry points (main.py, example.py), not here.
 # Messages that include entry data (weight, calories) are DEBUG only.
 logger = logging.getLogger(__name__)
@@ -26,6 +28,10 @@ MAX_LBS_PER_DAY = 5
 # loses more than MAX_SAFE_LBS_PER_WEEK is flagged by GoalPlanner.safety_warnings.
 MIN_SAFE_CALORIES = 1200
 MAX_SAFE_LBS_PER_WEEK = 2
+
+# Smoothing factor for TrendAnalyzer.trend_weights: each day the trend moves this
+# fraction of the way toward the scale reading (the Hacker's Diet uses 0.1).
+TREND_ALPHA = 0.1
 
 # How far (lbs) the optimized plan may miss the target before it is reported
 # as unreachable within GoalPlanner.CALORIE_BOUNDS.
@@ -301,19 +307,43 @@ class TrendAnalyzer:
 
         return moving_averages
     
-    def weight_trend(self) -> str:
+    def trend_weights(self, alpha: float = TREND_ALPHA) -> list[float]:
+        """Smoothed trend weight (lbs) for each entry, oldest first: an exponentially
+        weighted moving average that starts at the first weigh-in and moves `alpha`
+        of the way toward each new reading per day. Missed days count as days
+        without a reading, so after a gap of n days the trend moves
+        1 - (1 - alpha)**n of the way instead of jumping a full alpha step per entry.
+        Empty when the log is empty."""
+        if isinstance(alpha, bool) or not isinstance(alpha, numbers.Real) or not 0 < alpha <= 1:
+            raise ValueError(f"alpha must be a number in (0, 1], got {alpha!r}")
+        trend = []
+        previous = None
+        for entry in self._log:
+            if previous is None:
+                value = entry.weight
+            else:
+                gap = max((entry.date.date() - previous.date.date()).days, 1)
+                step = 1 - (1 - alpha) ** gap
+                value = trend[-1] + step * (entry.weight - trend[-1])
+            trend.append(value)
+            previous = entry
+        return trend
+
+    def weight_trend(self, unit: str = LBS) -> str:
         rate = self._log.weight_slope()  # lbs/day; positive means gaining
         if rate is None:
             return "Insufficient data"
         days = self._log.days_tracked()
+        unit = normalize_unit(unit)
+        shown = abs(from_lbs(rate, unit))
 
-        # Threshold is expressed in the same unit as the reported rate (lbs/day).
+        # The threshold is in lbs/day, like the slope; only the display is converted.
         if abs(rate) < 0.05:
-            return f"Stable weight (~{abs(rate):.2f} lbs/day over {days} days)"
+            return f"Stable weight (~{shown:.2f} {unit}/day over {days} days)"
         elif rate < 0:
-            return f"Losing weight: {abs(rate):.2f} lbs/day average"
+            return f"Losing weight: {shown:.2f} {unit}/day average"
         else:
-            return f"Gaining weight: {abs(rate):.2f} lbs/day average"
+            return f"Gaining weight: {shown:.2f} {unit}/day average"
     
 class EntryValidator:
     CALORIE_RANGE = (800, 5000)
@@ -455,27 +485,34 @@ class GoalPlanner:
             days += 1
         return None
 
-    def safety_warnings(self) -> list[str]:
-        """Human-readable warnings for an unsafe goal; empty when the plan is fine."""
+    def safety_warnings(self, unit: str = LBS) -> list[str]:
+        """Human-readable warnings for an unsafe goal; empty when the plan is fine.
+        Weights are shown in `unit`; the limits themselves are always checked in lbs."""
         warnings = []
         low, high = self.CALORIE_BOUNDS
         days = self._time_frame
         loss = self._current_weight - self._target_weight
+        unit = normalize_unit(unit)
+        shown_loss = from_lbs(loss, unit)
+        shown_target = round(from_lbs(self._target_weight, unit), 2)
+        shown_limit = round(from_lbs(MAX_SAFE_LBS_PER_WEEK, unit), 2)
+        # The kg limit is 0.91 kg/week, so one decimal could print a rate of 0.9 as too fast.
+        places = 2 if unit == KG else 1
 
         if self._is_too_fast(days):
             warnings.append(
-                f"Losing {loss:.1f} lbs in {days} days is about {loss / days * 7:.1f} lbs/week, "
-                f"faster than the {MAX_SAFE_LBS_PER_WEEK} lbs/week generally considered safe."
+                f"Losing {shown_loss:.1f} {unit} in {days} days is about {shown_loss / days * 7:.{places}f} {unit}/week, "
+                f"faster than the {shown_limit:g} {unit}/week generally considered safe."
             )
         if self._is_below_floor(days):
             warnings.append(
-                f"Reaching {self._target_weight:g} lbs in {days} days would require eating below "
+                f"Reaching {shown_target:g} {unit} in {days} days would require eating below "
                 f"{low} kcal/day. Recommendations never go below {low} "
                 f"kcal/day, so the target will not be reached in that time."
             )
         if self._is_above_cap(days):
             warnings.append(
-                f"Reaching {self._target_weight:g} lbs in {days} days would require eating more than "
+                f"Reaching {shown_target:g} {unit} in {days} days would require eating more than "
                 f"{high} kcal/day. Recommendations never go above {high} "
                 f"kcal/day, so the target will not be reached in that time."
             )
