@@ -118,6 +118,19 @@ def print_skipped(skipped: Counter) -> None:
         print(f"  Skipped {count}: {reason}")
 
 
+def ask_file_unit(count: int) -> str:
+    """Ask which unit `count` weights that don't name their unit are in; Enter means lbs."""
+    noun = "weight doesn't" if count == 1 else "weights don't"
+    while True:
+        answer = input(f"{count} {noun} say their unit. Are they in lbs or kg? (lbs/kg, Enter for lbs): ").strip()
+        if not answer:
+            return LBS
+        try:
+            return normalize_unit(answer)
+        except ValueError:
+            print("Please enter 'lbs' or 'kg'.")
+
+
 def prompt_weight(prompt: str, unit: str) -> float:
     """Ask for a weight in `unit` and return it in lbs, the unit entries are stored in."""
     return to_lbs(prompt_float(f"{prompt} ({unit}): "), unit)
@@ -189,20 +202,22 @@ def export_entries(log: CaloriesLog, unit: str = LBS, data_file=None) -> None:
     if path.suffix.lower() not in EXPORT_FORMATS:
         print("\nThe export file must end in .csv or .json.")
         return
-    if data_file is not None and os.path.realpath(path) == os.path.realpath(data_file):
-        print("\nThat is the file your log is saved to; choose another path.")
-        return
-    if os.path.isdir(path):
-        print(f"\n{path} is a folder; enter a file path.")
-        return
-    if os.path.lexists(path):
-        confirm = input(f"{path} already exists. Overwrite it? (y/N): ").strip().lower()
-        if confirm not in ("y", "yes"):
-            print("\nNothing exported.")
-            return
+    # The path checks raise ValueError too, e.g. for a NUL character in the path.
     try:
+        if data_file is not None and os.path.realpath(path) in (
+                os.path.realpath(data_file), os.path.realpath(settings_file_for(data_file))):
+            print("\nThat file holds your saved log or settings; choose another path.")
+            return
+        if os.path.isdir(path):
+            print(f"\n{path} is a folder; enter a file path.")
+            return
+        if os.path.lexists(path):
+            confirm = input(f"{path} already exists. Overwrite it? (y/N): ").strip().lower()
+            if confirm not in ("y", "yes"):
+                print("\nNothing exported.")
+                return
         export_log(log, path, unit)
-    except OSError as e:
+    except (OSError, ValueError) as e:
         print(f"\nCould not export to {path}: {e}")
         return
     noun = "entry" if len(log) == 1 else "entries"
@@ -350,15 +365,18 @@ def main(data_file=None, units=None) -> int:
                 # Load from file
                 filepath = input("Enter file path: ").strip()
                 try:
-                    entries = FileLoader.load_file(filepath)
+                    entries, unitless = FileLoader.load_file_with_unit_info(filepath)
+                    if unitless and unit != LBS:
+                        # Plain weights default to lbs; a kg user's file may well be in kg.
+                        file_unit = ask_file_unit(unitless)
+                        if file_unit != LBS:
+                            entries = FileLoader.load_file(filepath, default_unit=file_unit)
                     added, skipped = add_entries(log, entries)
                     print(f"\nLoaded {added} of {len(entries)} entries from {filepath}")
                     print_skipped(skipped)
                 except Exception as e:
                     print(f"\nError loading file: {e}")
                 else:
-                    if unit != LBS:
-                        print("  Note: weights without a 'unit' or 'weight_kg' column are read as lbs.")
                     if added:
                         save()
 

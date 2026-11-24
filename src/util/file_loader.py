@@ -16,7 +16,17 @@ ENCODING = 'utf-8-sig'
 
 class FileLoader:
     @staticmethod
-    def load_file(filepath: str) -> list[DailyEntry]:
+    def load_file(filepath: str, default_unit: str = LBS) -> list[DailyEntry]:
+        """Entries from a .csv, .json or .txt file. Weights that don't say their
+        unit (no unit/weight_unit field or weight_kg column, and every .txt
+        weight) are read in default_unit."""
+        return FileLoader.load_file_with_unit_info(filepath, default_unit)[0]
+
+    @staticmethod
+    def load_file_with_unit_info(filepath: str, default_unit: str = LBS) -> tuple[list[DailyEntry], int]:
+        """Like load_file, but also return how many weights were read in
+        default_unit because the file didn't give their unit."""
+        default_unit = normalize_unit(default_unit)
         ext = Path(filepath).suffix.lower()
         if ext not in ('.csv', '.json', '.txt'):
             raise ValueError(f'Unsupported file format: {ext or "(none)"}')
@@ -25,11 +35,11 @@ class FileLoader:
             raise ValueError(f'{filepath}: file is too large ({size / 1024 / 1024:.1f} MB); '
                              f'the limit is {MAX_FILE_BYTES / 1024 / 1024:.0f} MB')
         if ext == '.csv':
-            return FileLoader._load_csv(filepath)
+            return FileLoader._load_csv(filepath, default_unit)
         elif ext == '.json':
-            return FileLoader._load_json(filepath)
+            return FileLoader._load_json(filepath, default_unit)
         else:
-            return FileLoader._load_txt(filepath)
+            return FileLoader._load_txt(filepath, default_unit)
 
     @staticmethod
     def _make_entry(date_str, weight_str, calories_str, source: str, unit=LBS) -> DailyEntry:
@@ -53,15 +63,20 @@ class FileLoader:
 
     @staticmethod
     def _weight_and_unit(row, source: str):
-        # A record gives its weight as "weight" (lbs unless a "unit" or
-        # "weight_unit" field says otherwise) or as "weight_kg".
-        unit = next((row[key] for key in ('weight_unit', 'unit')
-                     if key in row and not FileLoader._is_blank(row[key])), None)
-        if unit is not None:
-            try:
-                unit = normalize_unit(unit)
-            except ValueError as e:
-                raise ValueError(f'{source}: {e}')
+        # A record gives its weight as "weight" (in the unit a "unit" or
+        # "weight_unit" field names, or None when neither is given) or as
+        # "weight_kg". Returns (weight, unit).
+        units = set()
+        for key in ('weight_unit', 'unit'):
+            if key in row and not FileLoader._is_blank(row[key]):
+                try:
+                    units.add(normalize_unit(row[key]))
+                except ValueError as e:
+                    raise ValueError(f'{source}: {e}')
+        if len(units) > 1:
+            raise ValueError(f'{source}: weight_unit {row["weight_unit"]!r} conflicts '
+                             f'with unit {row["unit"]!r}')
+        unit = units.pop() if units else None
         has_weight = not FileLoader._is_blank(row.get('weight'))
         has_kg = not FileLoader._is_blank(row.get('weight_kg'))
         if has_weight and has_kg:
@@ -70,7 +85,7 @@ class FileLoader:
             if unit not in (None, KG):
                 raise ValueError(f'{source}: weight_kg conflicts with unit {unit!r}')
             return row['weight_kg'], KG
-        return row.get('weight'), unit or LBS
+        return row.get('weight'), unit
 
     @staticmethod
     def _reject_underscores(value, field: str) -> None:
@@ -111,8 +126,9 @@ class FileLoader:
         return int(number)
 
     @staticmethod
-    def _load_csv(filepath: str) -> list[DailyEntry]:
+    def _load_csv(filepath: str, default_unit: str) -> tuple[list[DailyEntry], int]:
         entries = []
+        assumed = 0
         with open(filepath, 'r', encoding=ENCODING, newline='') as file:
             reader = csv.DictReader(file)
             if reader.fieldnames:
@@ -122,12 +138,16 @@ class FileLoader:
                 FileLoader._require_columns(row, filepath, line_no)
                 source = f'{filepath} line {line_no}'
                 weight, unit = FileLoader._weight_and_unit(row, source)
+                if unit is None:
+                    unit = default_unit
+                    assumed += 1
                 entries.append(FileLoader._make_entry(row['date'], weight, row['calories'], source, unit))
-        return entries
+        return entries, assumed
 
     @staticmethod
-    def _load_json(filepath: str) -> list[DailyEntry]:
+    def _load_json(filepath: str, default_unit: str) -> tuple[list[DailyEntry], int]:
         entries = []
+        assumed = 0
         with open(filepath, 'r', encoding=ENCODING) as file:
             data = json.load(file)
         if not isinstance(data, list):
@@ -139,11 +159,14 @@ class FileLoader:
             FileLoader._require_columns(row, filepath, index)
             source = f'{filepath} item {index}'
             weight, unit = FileLoader._weight_and_unit(row, source)
+            if unit is None:
+                unit = default_unit
+                assumed += 1
             entries.append(FileLoader._make_entry(row['date'], weight, row['calories'], source, unit))
-        return entries
+        return entries, assumed
 
     @staticmethod
-    def _load_txt(filepath: str) -> list[DailyEntry]:
+    def _load_txt(filepath: str, default_unit: str) -> tuple[list[DailyEntry], int]:
         # One entry per line as "date, weight, calories" (comma or whitespace
         # separated). Blank lines and lines starting with '#' are ignored, and an
         # optional "date weight calories" header row (any case) is skipped.
@@ -160,8 +183,9 @@ class FileLoader:
                     raise ValueError(f'{filepath} line {line_no}: expected 3 values '
                                      f'(date, weight, calories), got {len(parts)}')
                 entries.append(FileLoader._make_entry(
-                    parts[0], parts[1], parts[2], f'{filepath} line {line_no}'))
-        return entries
+                    parts[0], parts[1], parts[2], f'{filepath} line {line_no}', default_unit))
+        # .txt files have no unit column, so every weight is in default_unit.
+        return entries, len(entries)
 
     @staticmethod
     def _require_columns(row, filepath: str, location) -> None:

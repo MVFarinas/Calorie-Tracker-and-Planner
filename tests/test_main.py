@@ -636,8 +636,69 @@ def test_export_onto_the_data_file_is_refused(monkeypatch, capsys, tmp_path):
     path = tmp_path / "log.json"
     feed_input(monkeypatch, ["7", "11", str(path), EXIT])
     cli.main(path)
-    assert "That is the file your log is saved to" in capsys.readouterr().out
+    assert "That file holds your saved log or settings" in capsys.readouterr().out
     assert all("unit" not in row for row in json.loads(path.read_text()))
+
+
+def test_export_onto_the_settings_file_is_refused(monkeypatch, capsys, tmp_path):
+    path = tmp_path / "log.json"
+    settings = tmp_path / "log.settings.json"
+    feed_input(monkeypatch, ["7", "12", "kg", "11", str(settings), EXIT])
+    cli.main(path)
+    assert "That file holds your saved log or settings" in capsys.readouterr().out
+    assert json.loads(settings.read_text()) == {"unit": "kg"}
+
+
+def test_export_path_with_nul_character_is_reported(monkeypatch, capsys, tmp_path):
+    path = tmp_path / "log.json"
+    feed_input(monkeypatch, ["7", "11", "foo\0.csv", EXIT])
+    assert cli.main(path) == 0
+    assert "Could not export to" in capsys.readouterr().out
+
+
+def write_plain_csv(tmp_path):
+    path = tmp_path / "plain.csv"
+    path.write_text("date,weight,calories\n2025-07-01,90.5,2200\n")
+    return path
+
+
+@pytest.mark.parametrize("answer,shown", [("kg", "90.5 kg"), ("", "41.05 kg")])
+def test_kg_mode_asks_the_unit_of_plain_weights(monkeypatch, capsys, tmp_path, answer, shown):
+    path = write_plain_csv(tmp_path)
+    feed_input(monkeypatch, ["2", str(path), answer, "8", EXIT])
+    cli.main(units="kg")
+    out = capsys.readouterr().out
+    assert "Loaded 1 of 1 entries" in out
+    assert f"2025-07-01  {shown}  2200 cals" in out
+
+
+def test_kg_mode_reasks_on_unknown_file_unit(monkeypatch, capsys, tmp_path):
+    path = write_plain_csv(tmp_path)
+    feed_input(monkeypatch, ["2", str(path), "stone", "kg", EXIT])
+    cli.main(units="kg")
+    out = capsys.readouterr().out
+    assert "Please enter 'lbs' or 'kg'." in out
+    assert "Loaded 1 of 1 entries" in out
+
+
+def test_lbs_mode_reads_plain_weights_as_lbs_without_asking(monkeypatch, capsys, tmp_path):
+    path = write_plain_csv(tmp_path)
+    path.write_text("date,weight,calories\n2025-07-01,190.5,2200\n")
+    feed_input(monkeypatch, ["2", str(path), EXIT])
+    cli.main()
+    assert "Loaded 1 of 1 entries" in capsys.readouterr().out
+
+
+def test_kg_mode_does_not_ask_when_the_file_names_its_unit(monkeypatch, capsys, tmp_path):
+    target = tmp_path / "out.json"
+    feed_input(monkeypatch, ["7", "11", str(target), EXIT])
+    cli.main(units="kg")
+    capsys.readouterr()
+    feed_input(monkeypatch, ["2", str(target), EXIT])
+    cli.main(units="kg")
+    out = capsys.readouterr().out
+    assert "Loaded 20 of 20 entries" in out
+    assert "say their unit" not in out
 
 
 def test_weight_prompts_name_the_unit(monkeypatch):

@@ -81,13 +81,13 @@ Weights can be entered and shown in pounds (the default) or kilograms. Choose "C
 
 Dates are `YYYY-MM-DD`. Weights are in lbs unless the file says otherwise (CSV and JSON only):
 
-- an optional `unit` (or `weight_unit`) column or field per entry, `lbs` or `kg` (also `lb`, `pounds`, `kgs`, `kilograms`; blank means lbs), e.g. `date,weight,calories,unit` / `2025-07-01,90.5,2200,kg`
+- an optional `unit` (or `weight_unit`) column or field per entry, `lbs` or `kg` (also `lb`, `pounds`, `kgs`, `kilograms`), e.g. `date,weight,calories,unit` / `2025-07-01,90.5,2200,kg`. If an entry has both, they must agree.
 - or a `weight_kg` column or field in place of `weight`, e.g. `date,weight_kg,calories`
 
-An entry may not have both `weight` and `weight_kg`. If you use kg, make sure your file has one of these columns: plain `weight` values are always read as lbs.
+An entry may not have both `weight` and `weight_kg`. Weights that don't say their unit (a plain `weight` with a blank or missing `unit`, and every `.txt` weight) are read as lbs. When the CLI is set to kg and a file has such weights, it asks whether they are in lbs or kg before adding them (Enter means lbs).
 
 # Exporting
-"Export entries" writes every entry to a `.csv` or `.json` file at a path you enter. Weights are written in your chosen unit, with a `unit` column, so the file imports back the same with "Load from file" whatever unit is chosen at the time (kg values are rounded to 6 decimal places, well under a gram). If the file already exists you are asked before it is replaced, and the CLI won't export over its own data file. Like the data file, exports are readable only by you (permissions `600`).
+"Export entries" writes every entry to a `.csv` or `.json` file at a path you enter. Weights are written in your chosen unit, with a `unit` column, so the file imports back the same with "Load from file" whatever unit is chosen at the time (kg values are rounded to 6 decimal places, well under a gram). If the file already exists you are asked before it is replaced, and the CLI won't export over its own data or settings file. Like the data file, exports are readable only by you (permissions `600`).
 
 # Trend Chart
 "Analyze trends" then "Weight trend chart" draws your scale readings (`o`) and the smoothed trend weight (`*`, `@` where they overlap) against time, within 80 columns:

@@ -243,3 +243,43 @@ def test_json_unit_and_weight_kg_fields(tmp_path):
 def test_csv_unit_errors(tmp_path, text, match):
     with pytest.raises(ValueError, match=match):
         load_text(tmp_path, "bad.csv", text)
+
+
+def test_json_conflicting_unit_fields_are_rejected(tmp_path):
+    data = [{"date": "2025-07-01", "weight": 80, "weight_unit": "kg", "unit": "lbs", "calories": 2200}]
+    with pytest.raises(ValueError, match="weight_unit 'kg' conflicts with unit 'lbs'"):
+        load_text(tmp_path, "u.json", json.dumps(data))
+
+
+def test_agreeing_unit_fields_are_accepted(tmp_path):
+    entries = load_text(tmp_path, "u.csv", "date,weight,calories,unit,weight_unit\n2025-07-01,90.5,2200,kg,KG\n")
+    assert entries[0].weight == pytest.approx(KG_90_5_IN_LBS)
+
+
+@pytest.mark.parametrize("name,text", [
+    ("d.csv", "date,weight,calories,unit\n2025-07-01,90.5,2200,\n2025-07-02,90,2200,lbs\n"),
+    ("d.json", json.dumps([{"date": "2025-07-01", "weight": 90.5, "calories": 2200},
+                           {"date": "2025-07-02", "weight": 90, "unit": "lbs", "calories": 2200}])),
+])
+def test_default_unit_applies_only_to_weights_without_a_unit(tmp_path, name, text):
+    p = tmp_path / name
+    p.write_text(text, encoding="utf-8")
+    entries, unitless = FileLoader.load_file_with_unit_info(str(p), default_unit="kg")
+    assert unitless == 1
+    assert [e.weight for e in entries] == pytest.approx([KG_90_5_IN_LBS, 90])
+    # Without a default unit, plain weights are lbs.
+    assert [e.weight for e in FileLoader.load_file(str(p))] == [90.5, 90]
+
+
+def test_txt_weights_use_the_default_unit(tmp_path):
+    p = tmp_path / "d.txt"
+    p.write_text("2025-07-01, 90.5, 2200\n", encoding="utf-8")
+    entries, unitless = FileLoader.load_file_with_unit_info(str(p), default_unit="kg")
+    assert unitless == 1
+    assert entries[0].weight == pytest.approx(KG_90_5_IN_LBS)
+
+
+def test_unit_info_counts_nothing_when_every_weight_names_its_unit(tmp_path):
+    p = tmp_path / "d.csv"
+    p.write_text("date,weight_kg,calories\n2025-07-01,90.5,2200\n", encoding="utf-8")
+    assert FileLoader.load_file_with_unit_info(str(p))[1] == 0
