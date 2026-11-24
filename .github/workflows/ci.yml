@@ -33,3 +33,5 @@ jobs:
         run: mypy
       - name: Test
         run: pytest
+      - name: Check the console script
+        run: calorie-tracker --help

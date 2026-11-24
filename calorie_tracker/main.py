@@ -314,7 +314,7 @@ def choose_unit(current: str) -> str | None:
         return None
 
 
-def main(data_file=None, units=None) -> int:
+def run_menu(data_file=None, units=None) -> int:
     """Run the interactive menu. With data_file, the log is loaded from it at
     startup and saved back after every change, and the chosen weight unit is kept
     in a settings file next to it; without it nothing is persisted. `units`
@@ -504,7 +504,8 @@ def main(data_file=None, units=None) -> int:
     return 0
 
 
-def run(argv=None) -> int:
+def main(argv=None) -> int:
+    """Console-script entry point: parse the command line, then run the menu."""
     args = parse_args(argv)
     configure_logging(args.verbose)
     try:
@@ -512,8 +513,8 @@ def run(argv=None) -> int:
     except ValueError as e:
         print(f"Error: {e}", file=sys.stderr)
         return 2
-    return main(data_file, args.units)
+    return run_menu(data_file, args.units)
 
 
 if __name__ == "__main__":
-    sys.exit(run())
+    sys.exit(main())
