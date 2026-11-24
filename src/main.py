@@ -3,6 +3,9 @@
 from .util.file_loader import FileLoader
 from .entry import CaloriesLog, DailyEntry, MaintenanceCalculator, GoalPlanner, TrendAnalyzer
 from datetime import datetime
+from pathlib import Path
+
+DEMO_DATA = Path(__file__).parent / "data" / "sample_data.csv"
 
 
 def prompt_float(prompt: str) -> float:
@@ -13,12 +16,17 @@ def prompt_float(prompt: str) -> float:
             print("Please enter a valid number.")
 
 
-def prompt_int(prompt: str) -> int:
+def prompt_int(prompt: str, minimum: int = None) -> int:
     while True:
         try:
-            return int(input(prompt).strip())
+            value = int(input(prompt).strip())
         except ValueError:
             print("Please enter a valid whole number.")
+            continue
+        if minimum is not None and value < minimum:
+            print(f"Please enter a whole number of at least {minimum}.")
+            continue
+        return value
 
 
 def prompt_date(prompt: str) -> datetime:
@@ -94,7 +102,7 @@ def main():
                 else:
                     current_weight = prompt_float("Enter current weight (lbs): ")
                     target_weight = prompt_float("Enter target weight (lbs): ")
-                    time_frame = prompt_int("Enter time frame (days): ")
+                    time_frame = prompt_int("Enter time frame (days): ", minimum=1)
                     planner = GoalPlanner(current_weight, target_weight, time_frame, maintenance)
                     print(f"\nRecommended Intake (Algebraic): {planner.recommend_calories():.0f}")
                     print(f"Recommended Intake (Optimized): {planner.recommend_calories_optimized():.0f}")
@@ -102,7 +110,7 @@ def main():
             elif choice == "6":
                 # Trend analysis
                 analyzer = TrendAnalyzer(log)
-                window = prompt_int("Enter moving average window size: ")
+                window = prompt_int("Enter moving average window size: ", minimum=1)
                 field = input("Analyze 'calories' or 'weight': ").strip().lower()
                 if field not in ("calories", "weight"):
                     print("\nPlease choose 'calories' or 'weight'.")
@@ -115,17 +123,11 @@ def main():
                     print("\nNot enough data for moving average.")
 
             elif choice == "7":
-                # Demo data
+                # Demo data: the bundled 20-day sample, enough for a stable estimate
                 print("\nLoading demo entries...")
-                demo_entries = [
-                    DailyEntry(datetime(2025, 7, 1), 200, 2200),
-                    DailyEntry(datetime(2025, 7, 2), 198.8, 2200),
-                    DailyEntry(datetime(2025, 7, 3), 198.2, 2150),
-                    DailyEntry(datetime(2025, 7, 4), 197.9, 2100),
-                ]
-                for e in demo_entries:
-                    log.add_entry(e)
-                print("Demo entries added. Try viewing summary or calculating maintenance.")
+                demo_entries = FileLoader.load_file(str(DEMO_DATA))
+                added = sum(1 for e in demo_entries if log.add_entry(e))
+                print(f"Added {added} of {len(demo_entries)} demo entries. Try viewing summary or calculating maintenance.")
 
             elif choice == "8":
                 print("\nGoodbye!")
