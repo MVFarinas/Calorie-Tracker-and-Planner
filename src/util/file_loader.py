@@ -1,5 +1,6 @@
 import csv
 import json
+import math
 from pathlib import Path
 from datetime import datetime
 from ..entry import DailyEntry
@@ -43,11 +44,22 @@ class FileLoader:
         return DailyEntry(date, weight, calories)
 
     @staticmethod
+    def _reject_underscores(value, field: str) -> None:
+        # int()/float() accept Python digit grouping such as "2_200", which no
+        # spreadsheet writes; it is far more likely to be a typo.
+        if isinstance(value, str) and '_' in value:
+            raise ValueError(f'{field} must be a plain number, got {value!r}')
+
+    @staticmethod
     def _parse_weight(value) -> float:
         # float(True) would silently become 1.0
         if isinstance(value, bool):
             raise ValueError('weight must be a number, not true/false')
-        return float(value)
+        FileLoader._reject_underscores(value, 'weight')
+        weight = float(value)
+        if not math.isfinite(weight):
+            raise ValueError(f'weight must be a finite number, got {value!r}')
+        return weight
 
     @staticmethod
     def _parse_calories(value) -> int:
@@ -57,6 +69,7 @@ class FileLoader:
             raise ValueError('calories must be a number, not true/false')
         if isinstance(value, int):
             return value
+        FileLoader._reject_underscores(value, 'calories')
         if isinstance(value, str):
             value = value.strip()
             try:

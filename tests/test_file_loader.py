@@ -158,6 +158,21 @@ def test_json_non_object_items_raise_value_error(tmp_path, item):
         FileLoader.load_file(path)
 
 
+@pytest.mark.parametrize("weight", ["NaN", "Infinity", '"nan"', '"inf"'])
+def test_json_non_finite_weight_is_rejected(tmp_path, weight):
+    path = write_json(tmp_path, f'[{{"date": "2025-07-01", "weight": {weight}, "calories": 2200}}]')
+    with pytest.raises(ValueError, match="finite"):
+        FileLoader.load_file(path)
+
+
+@pytest.mark.parametrize("row", ["2025-07-01,2_0_0,2200", "2025-07-01,200,2_200"])
+def test_csv_underscore_digits_are_rejected(tmp_path, row):
+    p = tmp_path / "u.csv"
+    p.write_text(f"date,weight,calories\n{row}\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="plain number"):
+        FileLoader.load_file(str(p))
+
+
 # --- File size ------------------------------------------------------------
 
 def test_oversized_file_is_rejected(tmp_path, monkeypatch):
