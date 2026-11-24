@@ -14,6 +14,10 @@ KCAL_PER_LB = 3500
 # relative to the starting weight.
 ADAPT_KCAL_PER_LB = 10
 
+# How far (lbs) the optimized plan may miss the target before it is reported
+# as unreachable within GoalPlanner.CALORIE_BOUNDS.
+UNREACHABLE_TOLERANCE_LBS = 0.1
+
 class DailyEntry:
     def __init__(self, date: datetime, weight: float, calories: int):
         if not isinstance(date, datetime):
@@ -36,7 +40,7 @@ class DailyEntry:
         return self._calories
     
     def __str__(self) -> str:
-        return f'DailyEntry({self._date.strftime('%Y-%m-%d')}, {self._weight}lbs, {self._calories}cals)'
+        return f"DailyEntry({self._date.strftime('%Y-%m-%d')}, {self._weight}lbs, {self._calories}cals)"
 
 class Node:
     def __init__(self, data: DailyEntry):
@@ -253,6 +257,9 @@ class GoalPlanner:
     CALORIE_BOUNDS = (800, 5000)  # realistic daily intake range for recommendations
 
     def __init__ (self, current_weight: float, target_weight: float, time_frame: int, maintenance_calories: float):
+        # bool is an int subclass but never a meaningful number of days
+        if isinstance(time_frame, bool) or not isinstance(time_frame, int):
+            raise TypeError(f"Time frame must be a whole number of days, got {time_frame!r}")
         if time_frame <= 0:
             raise ValueError(f"Time frame must be a positive number of days, got {time_frame}")
         self._current_weight = current_weight
@@ -284,8 +291,9 @@ class GoalPlanner:
         result = minimize_scalar(objective, bounds=(low, high), method='bounded')
         if not result.success:
             logging.warning(f"Optimization did not converge: {result.message}")
-        # The bounded solver approaches but never exactly reaches a bound.
-        if min(result.x - low, high - result.x) < 1:
+        # result.fun is the squared miss in lbs; a reachable target is hit almost exactly,
+        # so a real miss means the optimum is held back by a calorie bound.
+        if result.fun > UNREACHABLE_TOLERANCE_LBS ** 2:
             logging.warning(
                 f"Target of {self._target_weight} lbs in {self._time_frame} days is not reachable "
                 f"within {low}-{high} kcal/day; recommendation is pinned at the bound"

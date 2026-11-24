@@ -145,6 +145,12 @@ def test_goal_planner_rejects_non_positive_time_frame(time_frame):
         GoalPlanner(current_weight=200, target_weight=190, time_frame=time_frame, maintenance_calories=2500)
 
 
+@pytest.mark.parametrize("time_frame", [1.5, 30.0, float("nan"), "30", True])
+def test_goal_planner_rejects_non_integer_time_frame(time_frame):
+    with pytest.raises(TypeError):
+        GoalPlanner(current_weight=200, target_weight=190, time_frame=time_frame, maintenance_calories=2500)
+
+
 def test_optimized_loss_is_slightly_below_algebraic():
     planner = GoalPlanner(current_weight=200, target_weight=190, time_frame=100, maintenance_calories=2500)
     algebraic = planner.recommend_calories()  # 2150
@@ -198,6 +204,15 @@ def test_optimized_does_not_warn_for_reachable_target(caplog):
     planner = GoalPlanner(current_weight=200, target_weight=190, time_frame=100, maintenance_calories=2500)
     with caplog.at_level(logging.WARNING):
         planner.recommend_calories_optimized()
+    assert "not reachable" not in caplog.text
+
+
+def test_optimized_does_not_warn_when_reachable_answer_is_near_bound(caplog):
+    # Maintenance just inside the floor: the target is hit exactly, so no warning.
+    planner = GoalPlanner(current_weight=200, target_weight=200, time_frame=30, maintenance_calories=800.5)
+    with caplog.at_level(logging.WARNING):
+        value = planner.recommend_calories_optimized()
+    assert value == pytest.approx(800.5, abs=0.1)
     assert "not reachable" not in caplog.text
 
 
