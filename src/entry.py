@@ -105,6 +105,25 @@ class LinkedList:
             current._next = new_node
         self._length += 1
 
+    def remove(self, data: DailyEntry) -> bool:
+        # Unlink the node holding this exact object (compared by identity, not
+        # value); returns False when it isn't in the list.
+        previous = None
+        current = self._head
+        while current and current._data is not data:
+            previous = current
+            current = current._next
+        if current is None:
+            return False
+        if previous is None:
+            self._head = current._next
+        else:
+            previous._next = current._next
+        if current is self._tail:
+            self._tail = previous
+        self._length -= 1
+        return True
+
     def __iter__(self):
         current = self._head
         while current:
@@ -143,6 +162,54 @@ class CaloriesLog:
         self._entries.insert_sorted(entry)
         self._dates.add(entry.date.date())
         logger.debug("Added entry: %s", entry)
+        return True
+
+    @staticmethod
+    def _day(date):
+        # Accept a datetime or a plain date; entries are keyed by calendar day.
+        return date.date() if isinstance(date, datetime) else date
+
+    def get_entry(self, date):
+        """The entry logged for this calendar day, or None."""
+        day = self._day(date)
+        if day not in self._dates:
+            return None
+        return next(entry for entry in self._entries if entry.date.date() == day)
+
+    def remove_entry(self, date):
+        """Remove the entry for this calendar day; return it, or None if there was none."""
+        entry = self.get_entry(date)
+        if entry is None:
+            return None
+        self._entries.remove(entry)
+        self._dates.discard(entry.date.date())
+        logger.debug("Removed entry: %s", entry)
+        return entry
+
+    def update_rejection_reason(self, date, weight, calories):
+        """Short reason why update_entry would reject these values, or None if it would apply them."""
+        existing = self.get_entry(date)
+        if existing is None:
+            return "no entry for that date"
+        replacement = DailyEntry(existing.date, weight, calories)
+        # Validate against every other entry, as if the old one were already gone.
+        others = [entry for entry in self._entries if entry is not existing]
+        return EntryValidator.rejection_reason(replacement, others)
+
+    def update_entry(self, date, weight, calories) -> bool:
+        """Replace the weight and calories logged for this calendar day after
+        re-validating them. Returns False, leaving the log unchanged, when there
+        is no entry for that day or the new values are rejected."""
+        reason = self.update_rejection_reason(date, weight, calories)
+        if reason is not None:
+            logger.debug("Rejected update for %s (%s)", self._day(date), reason)
+            return False
+        existing = self.get_entry(date)
+        replacement = DailyEntry(existing.date, weight, calories)
+        # Same date, so remove + insert_sorted puts it back in the same position.
+        self._entries.remove(existing)
+        self._entries.insert_sorted(replacement)
+        logger.debug("Updated entry: %s -> %s", existing, replacement)
         return True
 
     # Calculate average calories using all entries (None when there is no data)

@@ -515,3 +515,112 @@ def test_entry_contents_are_logged_at_debug_only(caplog):
     assert len(entry_records) == 3
     assert all(r.levelno == logging.DEBUG for r in entry_records)
     assert all(r.name == "src.entry" for r in caplog.records)
+
+
+# --- Removing and updating entries -----------------------------------------
+
+def test_linked_list_remove_head_middle_tail():
+    log = make_log([(1, 200, 2200), (2, 199.5, 2200), (3, 199, 2200), (4, 198.5, 2200)])
+    entries = log._entries
+    first, second, third, fourth = list(entries)
+
+    assert entries.remove(second) is True
+    assert [e.date.day for e in entries] == [1, 3, 4]
+    assert entries.remove(first) is True
+    assert entries.first is third
+    assert entries.remove(fourth) is True
+    assert entries.last is third and entries.first is third
+    assert len(entries) == 1
+    assert entries.remove(third) is True
+    assert entries.first is None and entries.last is None and len(entries) == 0
+
+
+def test_linked_list_remove_missing_returns_false():
+    log = make_log([(1, 200, 2200)])
+    stranger = DailyEntry(datetime(2025, 7, 1), 200, 2200)  # equal values, different object
+    assert log._entries.remove(stranger) is False
+    assert len(log) == 1
+
+
+def test_linked_list_append_after_removing_tail():
+    log = make_log([(1, 200, 2200), (2, 199.5, 2200)])
+    log.remove_entry(datetime(2025, 7, 2))
+    log.add_entry(DailyEntry(datetime(2025, 7, 3), 199.0, 2200))
+    assert [e.date.day for e in log] == [1, 3]
+    assert log.last().date.day == 3
+
+
+def test_remove_entry_by_date():
+    log = make_log([(1, 200, 2200), (2, 199.5, 2100), (3, 199, 2000)])
+    removed = log.remove_entry(datetime(2025, 7, 2))
+    assert removed.calories == 2100
+    assert [e.date.day for e in log] == [1, 3]
+    assert len(log) == 2
+    assert log.get_entry(datetime(2025, 7, 2)) is None
+
+
+def test_remove_entry_accepts_date_and_ignores_time():
+    from datetime import date
+    log = make_log([(1, 200, 2200), (2, 199.5, 2100)])
+    assert log.remove_entry(date(2025, 7, 1)) is not None
+    assert log.remove_entry(datetime(2025, 7, 2, 18, 30)) is not None
+    assert len(log) == 0
+
+
+def test_remove_missing_date_leaves_log_unchanged():
+    log = make_log([(1, 200, 2200)])
+    assert log.remove_entry(datetime(2025, 7, 9)) is None
+    assert len(log) == 1
+
+
+def test_removed_date_can_be_logged_again():
+    log = make_log([(1, 200, 2200), (2, 199.5, 2100)])
+    log.remove_entry(datetime(2025, 7, 2))
+    assert log.add_entry(DailyEntry(datetime(2025, 7, 2), 199.0, 1900)) is True
+    assert log.get_entry(datetime(2025, 7, 2)).calories == 1900
+
+
+def test_update_entry_replaces_values_in_place():
+    log = make_log([(1, 200, 2200), (2, 199.5, 2100), (3, 199, 2000)])
+    assert log.update_entry(datetime(2025, 7, 2), 199.8, 2300) is True
+    entry = log.get_entry(datetime(2025, 7, 2))
+    assert (entry.weight, entry.calories) == (199.8, 2300)
+    assert [e.date.day for e in log] == [1, 2, 3]
+    assert len(log) == 3
+
+
+def test_update_entry_excludes_the_entry_being_replaced():
+    # Without excluding the old entry, a same-date update would look like a
+    # duplicate, and its old weight would be checked as a neighbour.
+    log = make_log([(1, 200, 2200), (8, 196, 2100)])
+    # 204.5 is >5 lbs from the old value 200 but within 5 lbs/day of day 8 (7 days away).
+    assert log.update_entry(datetime(2025, 7, 1), 204.5, 2200) is True
+
+
+@pytest.mark.parametrize("weight,calories,reason", [
+    (200, 300, "calories out of range"),
+    (700, 2200, "weight out of range"),
+    (210, 2200, "weight change too large"),   # >5 lb swing vs. day 2
+])
+def test_rejected_update_leaves_log_unchanged(weight, calories, reason):
+    log = make_log([(1, 200, 2200), (2, 199.5, 2100)])
+    before = [(e.date, e.weight, e.calories) for e in log]
+    original = log.get_entry(datetime(2025, 7, 1))
+    assert reason in log.update_rejection_reason(datetime(2025, 7, 1), weight, calories)
+    assert log.update_entry(datetime(2025, 7, 1), weight, calories) is False
+    assert [(e.date, e.weight, e.calories) for e in log] == before
+    assert log.get_entry(datetime(2025, 7, 1)) is original
+
+
+def test_update_missing_date_is_rejected():
+    log = make_log([(1, 200, 2200)])
+    assert log.update_rejection_reason(datetime(2025, 7, 5), 200, 2200) == "no entry for that date"
+    assert log.update_entry(datetime(2025, 7, 5), 200, 2200) is False
+    assert len(log) == 1
+
+
+def test_update_rejects_bad_types_without_changing_log():
+    log = make_log([(1, 200, 2200)])
+    with pytest.raises(TypeError):
+        log.update_entry(datetime(2025, 7, 1), 200, 2200.5)
+    assert log.first().calories == 2200

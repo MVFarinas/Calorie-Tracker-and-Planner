@@ -1,6 +1,7 @@
 # main program logic with CLI
 
 from .util.file_loader import FileLoader
+from .util.storage import DATA_FILE_ENV_VAR, StorageError, format_date, load_log, resolve_data_file, save_log
 from .entry import CaloriesLog, DailyEntry, MaintenanceCalculator, GoalPlanner, TrendAnalyzer
 from collections import Counter
 from datetime import datetime
@@ -8,8 +9,24 @@ from pathlib import Path
 import argparse
 import logging
 import math
+import sys
 
 DEMO_DATA = Path(__file__).parent / "data" / "sample_data.csv"
+
+MENU_OPTIONS = (
+    "Add manual entry",
+    "Load from file",
+    "View summary",
+    "Calculate maintenance calories",
+    "Plan goal",
+    "Analyze trends",
+    "Load demo data",
+    "List entries",
+    "Edit entry",
+    "Delete entry",
+    "Exit",
+)
+EXIT_CHOICE = str(len(MENU_OPTIONS))
 
 GOAL_DISCLAIMER = ("Note: these are estimates only, not medical advice. Check with a doctor "
                    "or registered dietitian before making big changes to your diet.")
@@ -20,6 +37,9 @@ def parse_args(argv=None) -> argparse.Namespace:
                                      description="Estimate maintenance calories and plan weight goals.")
     parser.add_argument("-v", "--verbose", action="store_true",
                         help="show debug logging, including details of every entry added or rejected")
+    parser.add_argument("--data-file", metavar="PATH",
+                        help=f"JSON file the log is saved to and loaded from (default: ${DATA_FILE_ENV_VAR} "
+                             "if set, otherwise ~/.calorie_tracker/log.json)")
     return parser.parse_args(argv)
 
 
@@ -80,22 +100,107 @@ def print_skipped(skipped: Counter) -> None:
         print(f"  Skipped {count}: {reason}")
 
 
-def main():
-    log = CaloriesLog()
+def format_entry(entry: DailyEntry) -> str:
+    return f"{format_date(entry.date)}  {entry.weight:g} lbs  {entry.calories} cals"
+
+
+def list_entries(log: CaloriesLog) -> None:
+    if len(log) == 0:
+        print("\nNo entries yet.")
+        return
+    print(f"\n--- Entries ({len(log)}) ---")
+    for entry in log:
+        print(f"  {format_entry(entry)}")
+
+
+def edit_entry(log: CaloriesLog) -> bool:
+    """Ask for a date and new values; return True when the log was changed."""
+    if len(log) == 0:
+        print("\nNo entries to edit.")
+        return False
+    date = prompt_date("Enter date of the entry to edit (YYYY-MM-DD): ")
+    entry = log.get_entry(date)
+    if entry is None:
+        print(f"\nNo entry for {format_date(date)}.")
+        return False
+    print(f"Current: {format_entry(entry)}")
+    weight = prompt_float("Enter new weight (lbs): ")
+    calories = prompt_int("Enter new calories: ")
+    if log.update_entry(date, weight, calories):
+        print("\nEntry updated.")
+        return True
+    print(f"\nEntry not updated: {log.update_rejection_reason(date, weight, calories)}.")
+    return False
+
+
+def delete_entry(log: CaloriesLog) -> bool:
+    """Ask for a date and confirmation; return True when the log was changed."""
+    if len(log) == 0:
+        print("\nNo entries to delete.")
+        return False
+    date = prompt_date("Enter date of the entry to delete (YYYY-MM-DD): ")
+    entry = log.get_entry(date)
+    if entry is None:
+        print(f"\nNo entry for {format_date(date)}.")
+        return False
+    answer = input(f"Delete {format_entry(entry)}? (y/N): ").strip().lower()
+    if answer not in ("y", "yes"):
+        print("\nNot deleted.")
+        return False
+    log.remove_entry(date)
+    print("\nEntry deleted.")
+    return True
+
+
+def main(data_file=None) -> int:
+    """Run the interactive menu. With data_file, the log is loaded from it at
+    startup and saved back after every change; without it nothing is persisted.
+    Returns the process exit status."""
+    if data_file is None:
+        log = CaloriesLog()
+    else:
+        try:
+            log = load_log(data_file)
+        except StorageError as e:
+            # Refuse to start rather than risk overwriting the file with an empty log.
+            print(f"Error: {e}", file=sys.stderr)
+            print("Fix or move that file, or use --data-file to choose another one.", file=sys.stderr)
+            return 1
+        if len(log) == 0:
+            print(f"No saved entries yet. Changes will be saved to {data_file}")
+        else:
+            noun = "entry" if len(log) == 1 else "entries"
+            print(f"Loaded {len(log)} saved {noun} from {data_file}")
+
+    unsaved = False
+
+    def save() -> bool:
+        nonlocal unsaved
+        if data_file is None:
+            return True
+        try:
+            save_log(log, data_file)
+        except OSError as e:
+            unsaved = True
+            print(f"Warning: could not save to {data_file}: {e}. "
+                  f"Changes since the last successful save are not saved yet.")
+            return False
+        unsaved = False
+        return True
+
+    def finish():
+        # Changes are saved as they are made; retry once if the last save failed.
+        if unsaved and not save():
+            print("Warning: unsaved changes were lost.")
+        print("\nGoodbye!")
 
     while True:
         print("\n=== Maintenance Calorie Finder ===")
-        print("1. Add manual entry")
-        print("2. Load from file")
-        print("3. View summary")
-        print("4. Calculate maintenance calories")
-        print("5. Plan goal")
-        print("6. Analyze trends")
-        print("7. Load demo data")
-        print("8. Exit")
+        for number, label in enumerate(MENU_OPTIONS, start=1):
+            print(f"{number}. {label}")
 
         try:
-            choice = input("Choose an option (1 - 8): ").strip()
+            choice = input(f"Choose an option (1 - {EXIT_CHOICE}): ").strip()
 
             if choice == "1":
                 # Manual entry
@@ -105,6 +210,7 @@ def main():
                 entry = DailyEntry(date, weight, calories)
                 if log.add_entry(entry):
                     print("\nEntry added.")
+                    save()
                 else:
                     print(f"\nEntry rejected: {log.rejection_reason(entry)}.")
 
@@ -118,6 +224,9 @@ def main():
                     print_skipped(skipped)
                 except Exception as e:
                     print(f"\nError loading file: {e}")
+                else:
+                    if added:
+                        save()
 
             elif choice == "3":
                 # Summary
@@ -176,18 +285,44 @@ def main():
                 added, skipped = add_entries(log, demo_entries)
                 print(f"Added {added} of {len(demo_entries)} demo entries. Try viewing summary or calculating maintenance.")
                 print_skipped(skipped)
+                if added:
+                    save()
 
             elif choice == "8":
-                print("\nGoodbye!")
+                list_entries(log)
+
+            elif choice == "9":
+                if edit_entry(log):
+                    save()
+
+            elif choice == "10":
+                if delete_entry(log):
+                    save()
+
+            elif choice == EXIT_CHOICE:
+                finish()
                 break
 
             else:
-                print("\nInvalid choice. Please select a number 1 - 8.")
+                print(f"\nInvalid choice. Please select a number 1 - {EXIT_CHOICE}.")
 
         except (EOFError, KeyboardInterrupt):
-            print("\nGoodbye!")
+            finish()
             break
 
+    return 0
+
+
+def run(argv=None) -> int:
+    args = parse_args(argv)
+    configure_logging(args.verbose)
+    try:
+        data_file = resolve_data_file(args.data_file)
+    except ValueError as e:
+        print(f"Error: {e}", file=sys.stderr)
+        return 2
+    return main(data_file)
+
+
 if __name__ == "__main__":
-    configure_logging(parse_args().verbose)
-    main()
+    sys.exit(run())
