@@ -1,6 +1,8 @@
 import builtins
 import json
 import logging
+import os
+import sys
 
 import pytest
 
@@ -189,8 +191,14 @@ def test_changes_are_saved_and_reloaded(monkeypatch, capsys, tmp_path):
     feed_input(monkeypatch, ["8", "11"])
     cli.main(path)
     out = capsys.readouterr().out
-    assert f"Loaded 1 saved entries from {path}" in out
+    assert f"Loaded 1 saved entry from {path}" in out
     assert "2025-07-01  200 lbs  2200 cals" in out
+
+    feed_input(monkeypatch, ["1", "2025-07-02", "199", "2100", "11"])
+    cli.main(path)
+    feed_input(monkeypatch, ["11"])
+    cli.main(path)
+    assert f"Loaded 2 saved entries from {path}" in capsys.readouterr().out
 
 
 def test_rejected_entry_is_not_saved(monkeypatch, tmp_path):
@@ -313,6 +321,21 @@ def test_corrupt_data_file_refuses_to_start(monkeypatch, capsys, tmp_path):
     assert path.read_text() == "{oops"
 
 
+@pytest.mark.skipif(sys.platform == "win32" or os.geteuid() == 0,
+                    reason="POSIX permissions only; root can search any directory")
+def test_unsearchable_data_directory_refuses_to_start(monkeypatch, capsys, tmp_path):
+    locked = tmp_path / "locked"
+    locked.mkdir()
+    (locked / "log.json").write_text("[]")
+    locked.chmod(0)
+    feed_input(monkeypatch, [])  # must not reach the menu
+    try:
+        assert cli.main(locked / "log.json") == 1
+    finally:
+        locked.chmod(0o700)
+    assert "Could not read saved data" in capsys.readouterr().err
+
+
 def test_save_failure_is_reported_and_session_continues(monkeypatch, capsys, tmp_path):
     path = tmp_path / "log.json"
 
@@ -358,3 +381,57 @@ def test_run_rejects_non_json_data_file(monkeypatch, capsys, tmp_path):
     feed_input(monkeypatch, [])
     assert cli.run(["--data-file", str(tmp_path / "log.csv")]) == 2
     assert ".json" in capsys.readouterr().err
+
+
+def flaky_save(monkeypatch, failures):
+    """Make the first `failures` saves fail, then save for real."""
+    real_save = cli.save_log
+    calls = {"n": 0}
+
+    def save(log, path):
+        calls["n"] += 1
+        if calls["n"] <= failures:
+            raise PermissionError("read-only")
+        real_save(log, path)
+
+    monkeypatch.setattr(cli, "save_log", save)
+
+
+@pytest.mark.parametrize("exit_answer", ["11", EOFError, KeyboardInterrupt])
+def test_failed_save_is_retried_on_exit(monkeypatch, capsys, tmp_path, exit_answer):
+    path = tmp_path / "log.json"
+    flaky_save(monkeypatch, failures=1)
+    answers = iter(["1", "2025-07-01", "200", "2200", exit_answer])
+
+    def fake_input(prompt=""):
+        answer = next(answers)
+        if not isinstance(answer, str):
+            raise answer
+        return answer
+
+    monkeypatch.setattr(builtins, "input", fake_input)
+    assert cli.main(path) == 0
+    out = capsys.readouterr().out
+    assert "Warning: could not save" in out
+    assert "unsaved changes were lost" not in out
+    assert saved_rows(path) == [("2025-07-01", 200.0, 2200)]
+
+
+def test_exit_warns_when_changes_could_not_be_saved(monkeypatch, capsys, tmp_path):
+    path = tmp_path / "log.json"
+    flaky_save(monkeypatch, failures=2)
+    feed_input(monkeypatch, ["1", "2025-07-01", "200", "2200", "11"])
+    assert cli.main(path) == 0
+    out = capsys.readouterr().out
+    assert out.rstrip().endswith("Warning: unsaved changes were lost.\n\nGoodbye!")
+    assert not path.exists()
+
+
+def test_exit_after_successful_saves_does_not_save_again(monkeypatch, tmp_path):
+    path = tmp_path / "log.json"
+    feed_input(monkeypatch, ["1", "2025-07-01", "200", "2200", "11"])
+    calls = []
+    real_save = cli.save_log
+    monkeypatch.setattr(cli, "save_log", lambda log, p: (calls.append(p), real_save(log, p)))
+    cli.main(path)
+    assert calls == [path]

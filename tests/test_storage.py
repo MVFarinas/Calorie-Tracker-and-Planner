@@ -14,6 +14,7 @@ from src.util.storage import (
     DATA_FILE_ENV_VAR,
     StorageError,
     default_data_file,
+    format_date,
     load_log,
     resolve_data_file,
     save_log,
@@ -56,6 +57,29 @@ def test_empty_log_round_trips(tmp_path):
     save_log(CaloriesLog(), path)
     assert json.loads(path.read_text()) == []
     assert len(load_log(path)) == 0
+
+
+def test_early_years_are_zero_padded(tmp_path):
+    # strftime("%Y") gives "225" for year 225 on glibc, which the loader rejects.
+    assert format_date(datetime(225, 1, 1)) == "0225-01-01"
+    path = tmp_path / "log.json"
+    log = CaloriesLog()
+    assert log.add_entry(DailyEntry(datetime(225, 1, 1), 200.0, 2200))
+    save_log(log, path)
+    assert json.loads(path.read_text())[0]["date"] == "0225-01-01"
+    assert signature(load_log(path)) == signature(log)
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="symlinks need extra privileges on Windows")
+def test_save_through_symlink_updates_target(tmp_path):
+    target = tmp_path / "real.json"
+    target.write_text("[]")
+    link = tmp_path / "link.json"
+    link.symlink_to(target)
+    save_log(make_log(), link)
+    assert link.is_symlink()
+    assert signature(load_log(target)) == signature(make_log())
+    assert sorted(p.name for p in tmp_path.iterdir()) == ["link.json", "real.json"]
 
 
 def test_save_creates_missing_directories(tmp_path):
@@ -142,8 +166,15 @@ def test_missing_file_gives_empty_log(tmp_path):
     assert not path.exists()  # loading never creates the file
 
 
+@pytest.mark.parametrize("contents", ["", "  \n"])
+def test_empty_file_gives_empty_log(tmp_path, contents):
+    path = tmp_path / "log.json"
+    path.write_text(contents)
+    assert len(load_log(path)) == 0
+    assert path.read_text() == contents
+
+
 @pytest.mark.parametrize("contents", [
-    "",                                              # empty file
     "{not json",                                     # invalid JSON
     '{"date": "2025-07-01"}',                        # not an array
     '[{"date": "2025-07-01", "weight": 200}]',       # missing calories
@@ -173,6 +204,21 @@ def test_non_utf8_file_raises_storage_error(tmp_path):
     path.write_bytes(b"\xff\xfe\x00garbage")
     with pytest.raises(StorageError):
         load_log(path)
+
+
+@pytest.mark.skipif(sys.platform == "win32" or os.geteuid() == 0,
+                    reason="POSIX permissions only; root can search any directory")
+def test_unsearchable_directory_raises_storage_error(tmp_path):
+    locked = tmp_path / "locked"
+    locked.mkdir()
+    (locked / "log.json").write_text("[]")
+    locked.chmod(0)
+    try:
+        with pytest.raises(StorageError, match="Could not read saved data"):
+            load_log(locked / "log.json")
+    finally:
+        locked.chmod(0o700)
+    assert (locked / "log.json").read_text() == "[]"
 
 
 def test_directory_in_place_of_file_raises_storage_error(tmp_path):

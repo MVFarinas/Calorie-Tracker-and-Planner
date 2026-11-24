@@ -41,15 +41,30 @@ def resolve_data_file(cli_value=None, environ=None) -> Path:
     return path
 
 
+def format_date(date) -> str:
+    # isoformat() always pads the year to four digits; strftime("%Y") doesn't on
+    # every platform (glibc writes year 225 as "225"), and the loader needs four.
+    return date.date().isoformat()
+
+
 def load_log(path) -> CaloriesLog:
-    """Load a saved log. A missing file gives an empty log; anything that can't be
-    read back exactly (bad JSON, wrong schema, entries that fail validation)
-    raises StorageError, so the caller never overwrites it with a partial log."""
+    """Load a saved log. A missing, empty or whitespace-only file gives an empty
+    log; anything else that can't be read back exactly (unreadable file, bad JSON,
+    wrong schema, entries that fail validation) raises StorageError, so the caller
+    never overwrites it with a partial log."""
     path = Path(path)
     log = CaloriesLog()
-    if not path.exists():
-        return log
     try:
+        # Not path.exists(): it raises PermissionError when the directory can't be
+        # searched, and only a file that is really absent counts as a new log.
+        os.stat(path)
+    except FileNotFoundError:
+        return log
+    except OSError as e:
+        raise StorageError(f"Could not read saved data from {path}: {e}") from e
+    try:
+        if not path.read_bytes().strip():
+            return log  # nothing to protect, e.g. created with `touch`
         entries = FileLoader.load_file(str(path))
     except (OSError, ValueError, TypeError) as e:
         # json.JSONDecodeError and UnicodeDecodeError are both ValueErrors.
@@ -57,17 +72,19 @@ def load_log(path) -> CaloriesLog:
     for index, entry in enumerate(entries):
         if not log.add_entry(entry):
             raise StorageError(f"Saved data in {path} is invalid: item {index} "
-                               f"({entry.date:%Y-%m-%d}) was rejected: {log.rejection_reason(entry)}")
+                               f"({format_date(entry.date)}) was rejected: {log.rejection_reason(entry)}")
     return log
 
 
 def save_log(log: CaloriesLog, path) -> None:
     """Write the log to path atomically: the data goes to a temporary file in the
     same directory, which then replaces the old file in one step, so an
-    interrupted save leaves the previous file intact."""
-    path = Path(path)
+    interrupted save leaves the previous file intact. If path is a symlink, the
+    file it points to is updated and the link is kept."""
+    # Resolve symlinks first, or os.replace would swap the link for a regular file.
+    path = Path(os.path.realpath(path))
     path.parent.mkdir(mode=DIR_MODE, parents=True, exist_ok=True)
-    data = [{"date": entry.date.strftime("%Y-%m-%d"), "weight": float(entry.weight),
+    data = [{"date": format_date(entry.date), "weight": float(entry.weight),
              "calories": int(entry.calories)} for entry in log]
 
     # mkstemp creates the file with mode 0o600 on POSIX, so it is never readable

@@ -1,7 +1,7 @@
 # main program logic with CLI
 
 from .util.file_loader import FileLoader
-from .util.storage import DATA_FILE_ENV_VAR, StorageError, load_log, resolve_data_file, save_log
+from .util.storage import DATA_FILE_ENV_VAR, StorageError, format_date, load_log, resolve_data_file, save_log
 from .entry import CaloriesLog, DailyEntry, MaintenanceCalculator, GoalPlanner, TrendAnalyzer
 from collections import Counter
 from datetime import datetime
@@ -101,7 +101,7 @@ def print_skipped(skipped: Counter) -> None:
 
 
 def format_entry(entry: DailyEntry) -> str:
-    return f"{entry.date:%Y-%m-%d}  {entry.weight:g} lbs  {entry.calories} cals"
+    return f"{format_date(entry.date)}  {entry.weight:g} lbs  {entry.calories} cals"
 
 
 def list_entries(log: CaloriesLog) -> None:
@@ -121,7 +121,7 @@ def edit_entry(log: CaloriesLog) -> bool:
     date = prompt_date("Enter date of the entry to edit (YYYY-MM-DD): ")
     entry = log.get_entry(date)
     if entry is None:
-        print(f"\nNo entry for {date:%Y-%m-%d}.")
+        print(f"\nNo entry for {format_date(date)}.")
         return False
     print(f"Current: {format_entry(entry)}")
     weight = prompt_float("Enter new weight (lbs): ")
@@ -141,7 +141,7 @@ def delete_entry(log: CaloriesLog) -> bool:
     date = prompt_date("Enter date of the entry to delete (YYYY-MM-DD): ")
     entry = log.get_entry(date)
     if entry is None:
-        print(f"\nNo entry for {date:%Y-%m-%d}.")
+        print(f"\nNo entry for {format_date(date)}.")
         return False
     answer = input(f"Delete {format_entry(entry)}? (y/N): ").strip().lower()
     if answer not in ("y", "yes"):
@@ -159,7 +159,6 @@ def main(data_file=None) -> int:
     if data_file is None:
         log = CaloriesLog()
     else:
-        is_new = not Path(data_file).exists()
         try:
             log = load_log(data_file)
         except StorageError as e:
@@ -167,19 +166,33 @@ def main(data_file=None) -> int:
             print(f"Error: {e}", file=sys.stderr)
             print("Fix or move that file, or use --data-file to choose another one.", file=sys.stderr)
             return 1
-        if is_new:
+        if len(log) == 0:
             print(f"No saved entries yet. Changes will be saved to {data_file}")
         else:
-            print(f"Loaded {len(log)} saved entries from {data_file}")
+            noun = "entry" if len(log) == 1 else "entries"
+            print(f"Loaded {len(log)} saved {noun} from {data_file}")
 
-    def save():
+    unsaved = False
+
+    def save() -> bool:
+        nonlocal unsaved
         if data_file is None:
-            return
+            return True
         try:
             save_log(log, data_file)
         except OSError as e:
+            unsaved = True
             print(f"Warning: could not save to {data_file}: {e}. "
                   f"Changes since the last successful save are not saved yet.")
+            return False
+        unsaved = False
+        return True
+
+    def finish():
+        # Changes are saved as they are made; retry once if the last save failed.
+        if unsaved and not save():
+            print("Warning: unsaved changes were lost.")
+        print("\nGoodbye!")
 
     while True:
         print("\n=== Maintenance Calorie Finder ===")
@@ -287,15 +300,14 @@ def main(data_file=None) -> int:
                     save()
 
             elif choice == EXIT_CHOICE:
-                print("\nGoodbye!")
+                finish()
                 break
 
             else:
                 print(f"\nInvalid choice. Please select a number 1 - {EXIT_CHOICE}.")
 
         except (EOFError, KeyboardInterrupt):
-            # Every change is saved as it is made, so there is nothing to flush here.
-            print("\nGoodbye!")
+            finish()
             break
 
     return 0

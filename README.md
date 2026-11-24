@@ -63,7 +63,9 @@ The CLI keeps your log in a JSON file, by default `~/.calorie_tracker/log.json` 
 - The log is loaded on startup (the CLI prints how many entries it loaded) and saved after every change: adding, importing, editing or deleting entries. Exiting with Ctrl-C or Ctrl-D loses nothing that was already saved.
 - The file uses the same format as the JSON importer (`[{"date": "YYYY-MM-DD", "weight": 200.0, "calories": 2200}, ...]`), so you can copy it, back it up, or import it with "Load from file".
 - Because it holds health data, the file is readable and writable only by you (permissions `600`; a new `~/.calorie_tracker` folder is `700`). Saves write a temporary file next to it and swap it in, so an interrupted save never leaves a half-written log.
-- If the file can't be read back exactly (invalid JSON, a missing field, or entries that fail validation, e.g. after a hand edit), the CLI refuses to start and leaves the file untouched, rather than risk overwriting it. Fix or move the file, or point `--data-file` somewhere else.
+- If the data file is a symlink (e.g. into a synced folder), saves update the file it points to and keep the link.
+- An empty file is treated as an empty log. If the file can't be read back exactly (it or its folder isn't readable, invalid JSON, a missing field, or entries that fail validation, e.g. after a hand edit), the CLI refuses to start and leaves the file untouched, rather than risk overwriting it. Fix or move the file, or point `--data-file` somewhere else.
+- If a save fails (e.g. the folder is read-only), the CLI warns you and keeps going; on exit it tries once more and warns if your changes still couldn't be saved.
 
 # Running Tests
 The project uses `pytest`. Install the development dependencies and run the suite from the repository root:
