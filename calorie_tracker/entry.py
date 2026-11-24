@@ -43,6 +43,8 @@ MAX_WEIGHT_LBS = 600
 MIN_SAFE_CALORIES = 1200
 MAX_SAFE_LBS_PER_WEEK = 2
 
+DAYS_PER_WEEK = 7
+
 # Smoothing factor for TrendAnalyzer.trend_weights: each day the trend moves this
 # fraction of the way toward the scale reading (the Hacker's Diet uses 0.1).
 TREND_ALPHA = 0.1
@@ -53,6 +55,10 @@ STABLE_LBS_PER_DAY = 0.05
 # How far (lbs) the optimized plan may miss the target before it is reported
 # as unreachable within GoalPlanner.CALORIE_BOUNDS.
 UNREACHABLE_TOLERANCE_LBS = 0.1
+
+# How many days past its first estimate GoalPlanner.min_safe_time_frame tries
+# before deciding that no time frame satisfies every bound.
+MAX_EXTRA_SAFE_DAYS = 10
 
 
 def _is_number(value: object, kind: type) -> bool:
@@ -492,7 +498,7 @@ class GoalPlanner:
         return self._maintenance + weight_diff * ADAPT_KCAL_PER_LB / (1 - r**days)
 
     def _is_too_fast(self, days: int) -> bool:
-        loss_per_week = (self._current_weight - self._target_weight) / days * 7
+        loss_per_week = (self._current_weight - self._target_weight) / days * DAYS_PER_WEEK
         return loss_per_week > MAX_SAFE_LBS_PER_WEEK + self._EPS_LBS
 
     def _needed_range(self, days: int) -> tuple[float, float]:
@@ -533,7 +539,7 @@ class GoalPlanner:
             # Solve _required_intake(days, adaptive=True) == the bound for days;
             # the algebraic model always needs fewer days than this.
             bound_days = math.log(1 - change * k / spare) / math.log(1 - k / KCAL_PER_LB)
-        rate_days = change * 7 / MAX_SAFE_LBS_PER_WEEK if losing else 0
+        rate_days = change * DAYS_PER_WEEK / MAX_SAFE_LBS_PER_WEEK if losing else 0
 
         # Round up, then step past any floating-point error so the answer agrees
         # exactly with the checks used by safety_warnings. If a few extra days
@@ -541,7 +547,7 @@ class GoalPlanner:
         days = max(1, math.ceil(max(bound_days, rate_days)))
         while days > 1 and not self._is_unsafe(days - 1):
             days -= 1
-        for _ in range(10):
+        for _ in range(MAX_EXTRA_SAFE_DAYS):
             if not self._is_unsafe(days):
                 return days
             days += 1
@@ -564,7 +570,7 @@ class GoalPlanner:
         if self._is_too_fast(days):
             warnings.append(
                 f"Losing {shown_loss:.1f} {unit} in {days} days is about "
-                f"{shown_loss / days * 7:.{places}f} {unit}/week, "
+                f"{shown_loss / days * DAYS_PER_WEEK:.{places}f} {unit}/week, "
                 f"faster than the {shown_limit:g} {unit}/week generally considered safe."
             )
         if self._is_below_floor(days):
@@ -591,7 +597,8 @@ class GoalPlanner:
             else:
                 kind = "safe" if loss > 0 else "realistic"
                 warnings.append(
-                    f"A {kind} time frame for this goal is at least {safe_days} days (about {safe_days / 7:.1f} weeks)."
+                    f"A {kind} time frame for this goal is at least {safe_days} days "
+                    f"(about {safe_days / DAYS_PER_WEEK:.1f} weeks)."
                 )
         return warnings
 
