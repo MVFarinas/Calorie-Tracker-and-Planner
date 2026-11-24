@@ -29,6 +29,7 @@ def make_log(rows):
 
 # --- Ordering invariant ---------------------------------------------------
 
+
 def test_entries_are_sorted_regardless_of_insertion_order():
     log = make_log([(4, 197.9, 2100), (1, 200, 2200), (3, 198.2, 2150), (2, 198.8, 2200)])
     days = [e.date.day for e in log.get_entries_list()]
@@ -44,6 +45,7 @@ def test_days_tracked_and_weight_difference_use_chronological_ends():
 
 # --- Empty / single-entry handling ---------------------------------------
 
+
 def test_empty_log_returns_none_not_zero():
     log = CaloriesLog()
     assert log.average_calories() is None
@@ -58,6 +60,7 @@ def test_single_entry_has_no_maintenance_estimate():
 
 
 # --- Duplicate dates ------------------------------------------------------
+
 
 def test_duplicate_date_is_rejected():
     log = CaloriesLog()
@@ -80,6 +83,7 @@ def test_duplicate_dates_no_longer_produce_negative_maintenance():
 
 
 # --- Maintenance math -----------------------------------------------------
+
 
 def test_maintenance_exceeds_intake_when_weight_is_lost():
     # Ate 2000/day and lost weight => maintenance must be above intake.
@@ -126,6 +130,7 @@ def test_weight_slope_needs_two_distinct_dates():
 
 
 # --- Goal planner ---------------------------------------------------------
+
 
 def test_recommend_calories_direction():
     lose = GoalPlanner(current_weight=200, target_weight=190, time_frame=100, maintenance_calories=2500)
@@ -227,6 +232,7 @@ def test_optimized_does_not_warn_when_reachable_answer_is_near_bound(caplog):
 
 # --- Goal safety guardrails ----------------------------------------------
 
+
 def test_aggressive_loss_is_floored_and_warned():
     # 50 lb in 30 days would need about -3333 kcal/day.
     planner = GoalPlanner(current_weight=200, target_weight=150, time_frame=30, maintenance_calories=2500)
@@ -266,11 +272,14 @@ def test_floor_warning_without_rate_warning():
     assert planner.recommend_calories() == MIN_SAFE_CALORIES
 
 
-@pytest.mark.parametrize("current,target,time_frame,maintenance", [
-    (200, 150, 30, 2500),   # limited by the weekly loss rate
-    (200, 190, 30, 1500),   # limited by the calorie floor
-    (150, 148, 7, 1800),
-])
+@pytest.mark.parametrize(
+    "current,target,time_frame,maintenance",
+    [
+        (200, 150, 30, 2500),  # limited by the weekly loss rate
+        (200, 190, 30, 1500),  # limited by the calorie floor
+        (150, 148, 7, 1800),
+    ],
+)
 def test_min_safe_time_frame_is_the_boundary(current, target, time_frame, maintenance):
     safe_days = GoalPlanner(current, target, time_frame, maintenance).min_safe_time_frame()
     assert safe_days is not None
@@ -318,12 +327,15 @@ def test_extreme_gain_is_capped_and_warned():
     assert any(f"at least {safe_days} days" in w for w in warnings)
 
 
-@pytest.mark.parametrize("current,target,maintenance", [
-    (200, 300, 2500),
-    (150, 160, 2500),
-    (150, 151, 4900),   # little room under the cap
-    (150, 170, 1000),   # maintenance below the floor, gaining
-])
+@pytest.mark.parametrize(
+    "current,target,maintenance",
+    [
+        (200, 300, 2500),
+        (150, 160, 2500),
+        (150, 151, 4900),  # little room under the cap
+        (150, 170, 1000),  # maintenance below the floor, gaining
+    ],
+)
 def test_gain_min_safe_time_frame_is_the_boundary(current, target, maintenance):
     safe_days = GoalPlanner(current, target, 1, maintenance).min_safe_time_frame()
     assert safe_days is not None
@@ -356,6 +368,7 @@ def test_goal_planner_rejects_non_finite_inputs(field, bad):
 
 
 # --- Trend analysis -------------------------------------------------------
+
 
 def test_moving_average_windows():
     log = make_log([(1, 200, 2000), (2, 200, 2100), (3, 200, 2200), (4, 200, 2300)])
@@ -394,16 +407,20 @@ def test_weight_trend_insufficient_data():
 
 # --- Validation -----------------------------------------------------------
 
+
 def test_validator_accepts_reasonable_entry():
     assert EntryValidator.is_valid(DailyEntry(datetime(2025, 7, 1), 200, 2200)) is True
 
 
-@pytest.mark.parametrize("weight,calories", [
-    (200, 100),    # calories too low
-    (200, 9000),   # calories too high
-    (30, 2200),    # weight too low
-    (900, 2200),   # weight too high
-])
+@pytest.mark.parametrize(
+    "weight,calories",
+    [
+        (200, 100),  # calories too low
+        (200, 9000),  # calories too high
+        (30, 2200),  # weight too low
+        (900, 2200),  # weight too high
+    ],
+)
 def test_validator_rejects_out_of_range(weight, calories):
     assert EntryValidator.is_valid(DailyEntry(datetime(2025, 7, 1), weight, calories)) is False
 
@@ -416,10 +433,15 @@ def test_validator_rejects_large_one_day_swing():
     assert len(log) == 1
 
 
-@pytest.mark.parametrize("weight,valid", [
-    (50 - 1e-6, True), (600 + 1e-6, True),       # conversion noise on a limit
-    (50 - 1e-3, False), (600 + 1e-3, False),
-])
+@pytest.mark.parametrize(
+    "weight,valid",
+    [
+        (50 - 1e-6, True),
+        (600 + 1e-6, True),  # conversion noise on a limit
+        (50 - 1e-3, False),
+        (600 + 1e-3, False),
+    ],
+)
 def test_validator_weight_range_tolerance(weight, valid):
     assert EntryValidator.is_valid(DailyEntry(datetime(2025, 7, 1), weight, 2200)) is valid
 
@@ -464,12 +486,15 @@ def test_validator_scales_allowed_change_with_day_gap():
     assert log.add_entry(DailyEntry(datetime(2025, 7, 5), 202, 2200)) is False
 
 
-@pytest.mark.parametrize("weight,calories,expected", [
-    (200, 100, "calories out of range"),
-    (900, 2200, "weight out of range"),
-    (230, 2200, "weight change too large"),
-    (201, 2200, None),
-])
+@pytest.mark.parametrize(
+    "weight,calories,expected",
+    [
+        (200, 100, "calories out of range"),
+        (900, 2200, "weight out of range"),
+        (230, 2200, "weight change too large"),
+        (201, 2200, None),
+    ],
+)
 def test_rejection_reason_explains_failures(weight, calories, expected):
     log = make_log([(1, 200, 2200), (3, 200, 2200)])
     reason = log.rejection_reason(DailyEntry(datetime(2025, 7, 2), weight, calories))
@@ -493,6 +518,7 @@ def test_validator_rejects_large_change_before_earliest_entry():
 
 # --- DailyEntry types -----------------------------------------------------
 
+
 @pytest.mark.parametrize("weight", ["200", None, True, False, [200]])
 def test_daily_entry_rejects_non_numeric_weight(weight):
     with pytest.raises(TypeError):
@@ -512,24 +538,29 @@ def test_daily_entry_accepts_int_or_float_weight():
 
 # --- Logging --------------------------------------------------------------
 
+
 def test_importing_entry_does_not_configure_logging():
     import subprocess
     import sys
     from pathlib import Path
 
-    code = ("import logging, calorie_tracker.entry; root = logging.getLogger(); "
-            "print(len(root.handlers), root.level)")
-    result = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True,
-                            cwd=Path(__file__).resolve().parent.parent, check=True)
+    code = "import logging, calorie_tracker.entry; root = logging.getLogger(); print(len(root.handlers), root.level)"
+    result = subprocess.run(
+        [sys.executable, "-c", code],
+        capture_output=True,
+        text=True,
+        cwd=Path(__file__).resolve().parent.parent,
+        check=True,
+    )
     assert result.stdout.split() == ["0", str(logging.WARNING)]
 
 
 def test_entry_contents_are_logged_at_debug_only(caplog):
     with caplog.at_level(logging.DEBUG, logger="calorie_tracker.entry"):
         log = CaloriesLog()
-        log.add_entry(DailyEntry(datetime(2025, 7, 1), 213.4, 2200))   # added
-        log.add_entry(DailyEntry(datetime(2025, 7, 1), 213.4, 2200))   # duplicate
-        log.add_entry(DailyEntry(datetime(2025, 7, 2), 213.4, 300))    # invalid
+        log.add_entry(DailyEntry(datetime(2025, 7, 1), 213.4, 2200))  # added
+        log.add_entry(DailyEntry(datetime(2025, 7, 1), 213.4, 2200))  # duplicate
+        log.add_entry(DailyEntry(datetime(2025, 7, 2), 213.4, 300))  # invalid
     entry_records = [r for r in caplog.records if "213.4" in r.getMessage()]
     assert len(entry_records) == 3
     assert all(r.levelno == logging.DEBUG for r in entry_records)
@@ -537,6 +568,7 @@ def test_entry_contents_are_logged_at_debug_only(caplog):
 
 
 # --- Removing and updating entries -----------------------------------------
+
 
 def test_linked_list_remove_head_middle_tail():
     log = make_log([(1, 200, 2200), (2, 199.5, 2200), (3, 199, 2200), (4, 198.5, 2200)])
@@ -580,6 +612,7 @@ def test_remove_entry_by_date():
 
 def test_remove_entry_accepts_date_and_ignores_time():
     from datetime import date
+
     log = make_log([(1, 200, 2200), (2, 199.5, 2100)])
     assert log.remove_entry(date(2025, 7, 1)) is not None
     assert log.remove_entry(datetime(2025, 7, 2, 18, 30)) is not None
@@ -616,11 +649,14 @@ def test_update_entry_excludes_the_entry_being_replaced():
     assert log.update_entry(datetime(2025, 7, 1), 204.5, 2200) is True
 
 
-@pytest.mark.parametrize("weight,calories,reason", [
-    (200, 300, "calories out of range"),
-    (700, 2200, "weight out of range"),
-    (210, 2200, "weight change too large"),   # >5 lb swing vs. day 2
-])
+@pytest.mark.parametrize(
+    "weight,calories,reason",
+    [
+        (200, 300, "calories out of range"),
+        (700, 2200, "weight out of range"),
+        (210, 2200, "weight change too large"),  # >5 lb swing vs. day 2
+    ],
+)
 def test_rejected_update_leaves_log_unchanged(weight, calories, reason):
     log = make_log([(1, 200, 2200), (2, 199.5, 2100)])
     before = [(e.date, e.weight, e.calories) for e in log]
@@ -646,6 +682,7 @@ def test_update_rejects_bad_types_without_changing_log():
 
 
 # --- Smoothed trend weight (EWMA) -----------------------------------------
+
 
 def test_trend_weights_known_series():
     # Hacker's Diet: trend += 0.1 * (reading - trend), starting at the first reading.
@@ -687,14 +724,14 @@ def test_weight_trend_in_kg():
 def test_safety_warnings_in_kg():
     planner = GoalPlanner(196.8, 146.8, 30, 2400)
     warnings = planner.safety_warnings("kg")
-    assert warnings[0].startswith("Losing 22.7 kg in 30 days is about 5.29 kg/week, "
-                                  "faster than the 0.91 kg/week")
+    assert warnings[0].startswith("Losing 22.7 kg in 30 days is about 5.29 kg/week, faster than the 0.91 kg/week")
     assert "lbs" not in " ".join(warnings)
     # The checks themselves don't depend on the display unit.
     assert len(warnings) == len(planner.safety_warnings())
 
 
 # --- Public API -------------------------------------------------------------
+
 
 def test_log_first_and_last_are_properties_like_the_linked_list():
     empty = CaloriesLog()
@@ -706,8 +743,12 @@ def test_log_first_and_last_are_properties_like_the_linked_list():
 
 def test_goal_planner_exposes_its_inputs():
     planner = GoalPlanner(200, 190, 60, 2500)
-    assert (planner.current_weight, planner.target_weight, planner.time_frame,
-            planner.maintenance_calories) == (200, 190, 60, 2500)
+    assert (planner.current_weight, planner.target_weight, planner.time_frame, planner.maintenance_calories) == (
+        200,
+        190,
+        60,
+        2500,
+    )
 
 
 def test_daily_calorie_cap_is_shared_by_validation_and_planning():

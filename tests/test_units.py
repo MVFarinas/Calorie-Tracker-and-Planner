@@ -32,10 +32,20 @@ def test_lbs_is_the_identity():
     assert from_lbs(198.8, LBS) == 198.8
 
 
-@pytest.mark.parametrize("text,unit", [
-    ("lbs", LBS), ("LB", LBS), (" pounds ", LBS), ("Pound", LBS),
-    ("kg", KG), ("KG", KG), ("kgs", KG), ("kilograms", KG), ("kilo", KG),
-])
+@pytest.mark.parametrize(
+    "text,unit",
+    [
+        ("lbs", LBS),
+        ("LB", LBS),
+        (" pounds ", LBS),
+        ("Pound", LBS),
+        ("kg", KG),
+        ("KG", KG),
+        ("kgs", KG),
+        ("kilograms", KG),
+        ("kilo", KG),
+    ],
+)
 def test_normalize_unit_accepts_common_spellings(text, unit):
     assert normalize_unit(text) == unit
 

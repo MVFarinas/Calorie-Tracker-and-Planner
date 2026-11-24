@@ -78,8 +78,10 @@ def load_log(path) -> CaloriesLog:
         raise StorageError(f"Could not read saved data from {path}: {e}") from e
     for index, entry in enumerate(entries):
         if not log.add_entry(entry):
-            raise StorageError(f"Saved data in {path} is invalid: item {index} "
-                               f"({format_date(entry.date)}) was rejected: {log.rejection_reason(entry)}")
+            raise StorageError(
+                f"Saved data in {path} is invalid: item {index} "
+                f"({format_date(entry.date)}) was rejected: {log.rejection_reason(entry)}"
+            )
     return log
 
 
@@ -88,8 +90,10 @@ def save_log(log: CaloriesLog, path) -> None:
     same directory, which then replaces the old file in one step, so an
     interrupted save leaves the previous file intact. If path is a symlink, the
     file it points to is updated and the link is kept."""
-    data = [{"date": format_date(entry.date), "weight": float(entry.weight),
-             "calories": int(entry.calories)} for entry in log]
+    data = [
+        {"date": format_date(entry.date), "weight": float(entry.weight), "calories": int(entry.calories)}
+        for entry in log
+    ]
     _write_atomic(path, lambda file: _dump_json(data, file))
 
 
@@ -153,8 +157,7 @@ def export_log(log: CaloriesLog, path, unit: str = LBS) -> None:
         weight = from_lbs(float(entry.weight), unit)
         if unit == KG:
             weight = round(weight, KG_EXPORT_DECIMALS)
-        rows.append({"date": format_date(entry.date), "weight": weight,
-                     "calories": int(entry.calories), "unit": unit})
+        rows.append({"date": format_date(entry.date), "weight": weight, "calories": int(entry.calories), "unit": unit})
     if ext == ".json":
         _write_atomic(path, lambda file: _dump_json(rows, file), make_parents=False)
     else:
@@ -162,8 +165,7 @@ def export_log(log: CaloriesLog, path, unit: str = LBS) -> None:
 
 
 def _write_csv(rows, file) -> None:
-    writer = csv.DictWriter(file, fieldnames=["date", "weight", "calories", "unit"],
-                            lineterminator="\n")
+    writer = csv.DictWriter(file, fieldnames=["date", "weight", "calories", "unit"], lineterminator="\n")
     writer.writeheader()
     # str(float) is the shortest text that reads back as the same float, so
     # lbs values round-trip exactly.

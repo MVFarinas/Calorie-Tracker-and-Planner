@@ -18,8 +18,9 @@ def _day(value):
     return value.date() if isinstance(value, datetime) else value
 
 
-def render_weight_chart(dates, raw, trend, unit: str = LBS,
-                        width: int = DEFAULT_WIDTH, height: int = DEFAULT_HEIGHT) -> str:
+def render_weight_chart(
+    dates, raw, trend, unit: str = LBS, width: int = DEFAULT_WIDTH, height: int = DEFAULT_HEIGHT
+) -> str:
     """Chart of the scale readings (o) and trend weight (*, joined into a line)
     against time, at most `width` columns wide. `raw` and `trend` are in lbs and
     are shown in `unit`; `dates` are datetimes or dates in ascending order."""

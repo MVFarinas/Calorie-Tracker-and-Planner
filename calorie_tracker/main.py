@@ -49,21 +49,35 @@ MENU_OPTIONS = (
 )
 EXIT_CHOICE = str(len(MENU_OPTIONS))
 
-GOAL_DISCLAIMER = ("Note: these are estimates only, not medical advice. Check with a doctor "
-                   "or registered dietitian before making big changes to your diet.")
+GOAL_DISCLAIMER = (
+    "Note: these are estimates only, not medical advice. Check with a doctor "
+    "or registered dietitian before making big changes to your diet."
+)
 
 
 def parse_args(argv=None) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(prog="calorie-tracker",
-                                     description="Estimate maintenance calories and plan weight goals.")
-    parser.add_argument("-v", "--verbose", action="store_true",
-                        help="show debug logging, including details of every entry added or rejected")
-    parser.add_argument("--data-file", metavar="PATH",
-                        help=f"JSON file the log is saved to and loaded from (default: ${DATA_FILE_ENV_VAR} "
-                             "if set, otherwise ~/.calorie_tracker/log.json)")
-    parser.add_argument("--units", type=_unit_arg, metavar="{lbs,kg}",
-                        help="show and enter weights in this unit for this session "
-                             "(default: the unit last chosen in the menu, otherwise lbs)")
+    parser = argparse.ArgumentParser(
+        prog="calorie-tracker", description="Estimate maintenance calories and plan weight goals."
+    )
+    parser.add_argument(
+        "-v",
+        "--verbose",
+        action="store_true",
+        help="show debug logging, including details of every entry added or rejected",
+    )
+    parser.add_argument(
+        "--data-file",
+        metavar="PATH",
+        help=f"JSON file the log is saved to and loaded from (default: ${DATA_FILE_ENV_VAR} "
+        "if set, otherwise ~/.calorie_tracker/log.json)",
+    )
+    parser.add_argument(
+        "--units",
+        type=_unit_arg,
+        metavar="{lbs,kg}",
+        help="show and enter weights in this unit for this session "
+        "(default: the unit last chosen in the menu, otherwise lbs)",
+    )
     return parser.parse_args(argv)
 
 
@@ -76,8 +90,7 @@ def _unit_arg(value: str) -> str:
 
 def configure_logging(verbose: bool = False) -> None:
     # Warnings only by default: debug messages include personal weight and calorie data.
-    logging.basicConfig(level=logging.DEBUG if verbose else logging.WARNING,
-                        format="%(levelname)s: %(message)s")
+    logging.basicConfig(level=logging.DEBUG if verbose else logging.WARNING, format="%(levelname)s: %(message)s")
 
 
 def prompt_float(prompt: str) -> float:
@@ -218,7 +231,9 @@ def export_entries(log: CaloriesLog, unit: str = LBS, data_file=None) -> None:
     # The path checks raise ValueError too, e.g. for a NUL character in the path.
     try:
         if data_file is not None and os.path.realpath(path) in (
-                os.path.realpath(data_file), os.path.realpath(settings_file_for(data_file))):
+            os.path.realpath(data_file),
+            os.path.realpath(settings_file_for(data_file)),
+        ):
             print("\nThat file holds your saved log or settings; choose another path.")
             return
         if os.path.isdir(path):
@@ -273,10 +288,15 @@ def analyze_trends(log: CaloriesLog, unit: str = LBS) -> None:
         entries = log.get_entries_list()
         trend = analyzer.trend_weights()
         print()
-        print(render_weight_chart([entry.date for entry in entries], [entry.weight for entry in entries],
-                                  trend, unit, width=chart_width()))
-        print(f"\nLatest trend weight: {format_weight(trend[-1], unit, decimals=1)} "
-              f"(scale: {format_weight(entries[-1].weight, unit, decimals=1)})")
+        print(
+            render_weight_chart(
+                [entry.date for entry in entries], [entry.weight for entry in entries], trend, unit, width=chart_width()
+            )
+        )
+        print(
+            f"\nLatest trend weight: {format_weight(trend[-1], unit, decimals=1)} "
+            f"(scale: {format_weight(entries[-1].weight, unit, decimals=1)})"
+        )
         if len(log) >= 2:
             print(f"Overall: {analyzer.weight_trend(unit)}")
 
@@ -328,8 +348,10 @@ def main(data_file=None, units=None) -> int:
             save_log(log, data_file)
         except OSError as e:
             unsaved = True
-            print(f"Warning: could not save to {data_file}: {e}. "
-                  f"Changes since the last successful save are not saved yet.")
+            print(
+                f"Warning: could not save to {data_file}: {e}. "
+                f"Changes since the last successful save are not saved yet."
+            )
             return False
         unsaved = False
         return True
@@ -443,8 +465,10 @@ def main(data_file=None, units=None) -> int:
                 print("\nLoading demo entries...")
                 demo_entries = FileLoader.load_file(str(DEMO_DATA))
                 added, skipped = add_entries(log, demo_entries)
-                print(f"Added {added} of {len(demo_entries)} demo entries. "
-                      "Try viewing summary or calculating maintenance.")
+                print(
+                    f"Added {added} of {len(demo_entries)} demo entries. "
+                    "Try viewing summary or calculating maintenance."
+                )
                 print_skipped(skipped)
                 if added:
                     save()

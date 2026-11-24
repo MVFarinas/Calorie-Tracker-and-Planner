@@ -13,8 +13,16 @@ KG_PER_LB = 0.45359237
 
 # Spellings accepted by normalize_unit, e.g. from a "unit" column in a file.
 _ALIASES = {
-    "lb": LBS, "lbs": LBS, "pound": LBS, "pounds": LBS,
-    "kg": KG, "kgs": KG, "kilo": KG, "kilos": KG, "kilogram": KG, "kilograms": KG,
+    "lb": LBS,
+    "lbs": LBS,
+    "pound": LBS,
+    "pounds": LBS,
+    "kg": KG,
+    "kgs": KG,
+    "kilo": KG,
+    "kilos": KG,
+    "kilogram": KG,
+    "kilograms": KG,
 }
 
 

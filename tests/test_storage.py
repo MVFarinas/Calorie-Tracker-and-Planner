@@ -41,6 +41,7 @@ def signature(entries):
 
 # --- Round trip -------------------------------------------------------------
 
+
 def test_save_then_load_round_trips(tmp_path):
     path = tmp_path / "log.json"
     log = make_log()
@@ -101,6 +102,7 @@ def test_save_overwrites_previous_contents(tmp_path):
 
 
 # --- Atomic writes and permissions -------------------------------------------
+
 
 def test_save_leaves_no_temp_files(tmp_path):
     path = tmp_path / "log.json"
@@ -165,6 +167,7 @@ def test_new_data_directory_is_private(tmp_path):
 
 # --- Missing and corrupt files -----------------------------------------------
 
+
 def test_missing_file_gives_empty_log(tmp_path):
     path = tmp_path / "nope" / "log.json"
     assert len(load_log(path)) == 0
@@ -179,12 +182,15 @@ def test_empty_file_gives_empty_log(tmp_path, contents):
     assert path.read_text() == contents
 
 
-@pytest.mark.parametrize("contents", [
-    "{not json",                                     # invalid JSON
-    '{"date": "2025-07-01"}',                        # not an array
-    '[{"date": "2025-07-01", "weight": 200}]',       # missing calories
-    '[{"date": "07/01/2025", "weight": 200, "calories": 2200}]',  # bad date
-])
+@pytest.mark.parametrize(
+    "contents",
+    [
+        "{not json",  # invalid JSON
+        '{"date": "2025-07-01"}',  # not an array
+        '[{"date": "2025-07-01", "weight": 200}]',  # missing calories
+        '[{"date": "07/01/2025", "weight": 200, "calories": 2200}]',  # bad date
+    ],
+)
 def test_corrupt_file_raises_and_is_left_untouched(tmp_path, contents):
     path = tmp_path / "log.json"
     path.write_text(contents)
@@ -197,8 +203,10 @@ def test_invalid_entries_are_refused_not_dropped(tmp_path):
     # A hand-edited file with a duplicate date must not load as a smaller log
     # (the next save would then silently drop the extra entry).
     path = tmp_path / "log.json"
-    rows = [{"date": "2025-07-01", "weight": 200, "calories": 2200},
-            {"date": "2025-07-01", "weight": 199, "calories": 2100}]
+    rows = [
+        {"date": "2025-07-01", "weight": 200, "calories": 2200},
+        {"date": "2025-07-01", "weight": 199, "calories": 2100},
+    ]
     path.write_text(json.dumps(rows))
     with pytest.raises(StorageError, match="item 1 .*already exists"):
         load_log(path)
@@ -211,8 +219,9 @@ def test_non_utf8_file_raises_storage_error(tmp_path):
         load_log(path)
 
 
-@pytest.mark.skipif(sys.platform == "win32" or os.geteuid() == 0,
-                    reason="POSIX permissions only; root can search any directory")
+@pytest.mark.skipif(
+    sys.platform == "win32" or os.geteuid() == 0, reason="POSIX permissions only; root can search any directory"
+)
 def test_unsearchable_directory_raises_storage_error(tmp_path):
     locked = tmp_path / "locked"
     locked.mkdir()
@@ -234,6 +243,7 @@ def test_directory_in_place_of_file_raises_storage_error(tmp_path):
 
 
 # --- Data file location -------------------------------------------------------
+
 
 def test_default_data_file_is_under_home(isolated_home):
     assert default_data_file() == isolated_home / ".calorie_tracker" / "log.json"
@@ -270,6 +280,7 @@ def test_data_file_must_be_json(tmp_path, name):
 
 
 # --- Export ---------------------------------------------------------------
+
 
 def rows_of(entries):
     return [(format_date(e.date), e.weight, e.calories) for e in entries]
@@ -311,8 +322,7 @@ def test_export_in_kg_keeps_entries_on_validation_limits(tmp_path, name):
         export_log(log, path, unit="kg")
         reloaded = CaloriesLog()
         loaded = FileLoader.load_file(str(path))
-        rejected = [(format_date(e.date), reloaded.rejection_reason(e))
-                    for e in loaded if not reloaded.add_entry(e)]
+        rejected = [(format_date(e.date), reloaded.rejection_reason(e)) for e in loaded if not reloaded.add_entry(e)]
         assert rejected == []
         assert len(reloaded) == len(source)
 
@@ -326,8 +336,7 @@ def test_export_csv_layout_names_the_unit(tmp_path):
 def test_export_json_layout(tmp_path):
     path = tmp_path / "out.json"
     export_log(make_log([(1, 200.0, 2200)]), path)
-    assert json.loads(path.read_text()) == [
-        {"date": "2025-07-01", "weight": 200.0, "calories": 2200, "unit": "lbs"}]
+    assert json.loads(path.read_text()) == [{"date": "2025-07-01", "weight": 200.0, "calories": 2200, "unit": "lbs"}]
 
 
 def test_export_of_saved_log_reloads_into_same_log(tmp_path):
@@ -357,6 +366,7 @@ def test_export_is_private(tmp_path):
 
 
 # --- Settings -------------------------------------------------------------
+
 
 def test_settings_file_sits_next_to_data_file(tmp_path):
     assert settings_file_for(tmp_path / "log.json") == tmp_path / "log.settings.json"

@@ -16,26 +16,26 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.WARNING, format="%(levelname)s: %(message)s")
     log = CaloriesLog()
 
-    print('\n--- File Loading Demo ---')
-    #Swap between different file formats for testing
+    print("\n--- File Loading Demo ---")
+    # Swap between different file formats for testing
     entries = FileLoader.load_file(str(DATA_DIR / "sample_data.csv"))
-    #entries = FileLoader.load_file(str(DATA_DIR / "sample_data.json"))
+    # entries = FileLoader.load_file(str(DATA_DIR / "sample_data.json"))
 
     print("\n--- Loading entries ---")
     added = sum(1 for entry in entries if log.add_entry(entry))
     print(f"\nLoaded {added} of {len(entries)} entries")
     print(f"Average Daily Calories: {log.average_calories():.0f}\n")
-    print('--- End File Loading Demo ---')
+    print("--- End File Loading Demo ---")
 
     # Example: add_entry validates each entry and returns False when it is rejected;
     # rejection_reason says why.
     # Each of these fails a different check, so the log above is left unchanged.
     invalid_entries = [
         DailyEntry(datetime(2025, 7, 20), weight=196.8, calories=2200),  # date already logged
-        DailyEntry(datetime(2025, 7, 21), weight=196.7, calories=300),   # calories out of range
+        DailyEntry(datetime(2025, 7, 21), weight=196.7, calories=300),  # calories out of range
         DailyEntry(datetime(2025, 7, 21), weight=203.5, calories=2200),  # >5 lb swing in one day
     ]
-    print('\n--- Quick Demo: Adding Entries with Validation ---')
+    print("\n--- Quick Demo: Adding Entries with Validation ---")
     for entry in invalid_entries:
         if not log.add_entry(entry):
             print(f"Invalid entry skipped: {entry}: {log.rejection_reason(entry)}")
@@ -63,18 +63,15 @@ if __name__ == "__main__":
     print(render_weight_chart([e.date for e in log], [e.weight for e in log], trend))
 
     planner = GoalPlanner(
-        current_weight = latest.weight,
-        target_weight = 190,
-        time_frame = 60,
-        maintenance_calories = maintenance
+        current_weight=latest.weight, target_weight=190, time_frame=60, maintenance_calories=maintenance
     )
 
     intake_reccomendation = planner.recommend_calories()
     intake_optimization = planner.recommend_calories_optimized()
-    print('\n--- Goal Planning ---')
-    print(f'To achieve a weight of {planner.target_weight} lbs in {planner.time_frame} days:')
-    print(f'Your Recommended Daily Caloric Intake (Algebraic): {intake_reccomendation:.0f} calories/day')
-    print(f'Your Optimized Daily Caloric Intake (Nonlinear): {intake_optimization:.0f} calories/day')
+    print("\n--- Goal Planning ---")
+    print(f"To achieve a weight of {planner.target_weight} lbs in {planner.time_frame} days:")
+    print(f"Your Recommended Daily Caloric Intake (Algebraic): {intake_reccomendation:.0f} calories/day")
+    print(f"Your Optimized Daily Caloric Intake (Nonlinear): {intake_optimization:.0f} calories/day")
     for warning in planner.safety_warnings():
-        print(f'Warning: {warning}')
-    print('(Estimates only, not medical advice.)\n')
+        print(f"Warning: {warning}")
+    print("(Estimates only, not medical advice.)\n")

@@ -54,6 +54,7 @@ STABLE_LBS_PER_DAY = 0.05
 # as unreachable within GoalPlanner.CALORIE_BOUNDS.
 UNREACHABLE_TOLERANCE_LBS = 0.1
 
+
 def _is_number(value: object, kind: type) -> bool:
     # bool is a subclass of int, but True/False is never a real measurement.
     # Taking `object` keeps type checkers from treating the check as always true.
@@ -72,7 +73,7 @@ class DailyEntry:
         self._weight = weight
         self._calories = calories
 
-    #introduce property decorators for getter method
+    # introduce property decorators for getter method
     @property
     def date(self) -> datetime:
         return self._date
@@ -88,10 +89,12 @@ class DailyEntry:
     def __str__(self) -> str:
         return f"DailyEntry({self._date.strftime('%Y-%m-%d')}, {self._weight}lbs, {self._calories}cals)"
 
+
 class Node:
     def __init__(self, data: DailyEntry):
         self._data = data
         self._next: Node | None = None
+
 
 class LinkedList:
     def __init__(self):
@@ -99,7 +102,7 @@ class LinkedList:
         self._tail: Node | None = None
         self._length = 0
 
-    def append (self, data:DailyEntry):
+    def append(self, data: DailyEntry):
         new_node = Node(data)
         # If the list is empty, set the new node as both head and tail
         if self._head is None or self._tail is None:
@@ -107,9 +110,9 @@ class LinkedList:
             self._tail = new_node
 
         else:
-            self._tail._next = new_node # Link the new node to the end of the list
-            self._tail = new_node # Update the tail to the new node
-        self._length +=1
+            self._tail._next = new_node  # Link the new node to the end of the list
+            self._tail = new_node  # Update the tail to the new node
+        self._length += 1
 
     def insert_sorted(self, data: DailyEntry):
         # Insert keeping the list sorted ascending by date, so the head is always
@@ -168,6 +171,7 @@ class LinkedList:
     @property
     def last(self) -> DailyEntry | None:
         return self._tail._data if self._tail else None
+
 
 class CaloriesLog:
     def __init__(self):
@@ -295,6 +299,7 @@ class CaloriesLog:
     def get_entries_list(self) -> list[DailyEntry]:
         return list(self._entries)
 
+
 class MaintenanceCalculator:
     def __init__(self, calories_log: CaloriesLog):
         self._log = calories_log
@@ -311,8 +316,9 @@ class MaintenanceCalculator:
         # Gaining (slope > 0) means intake was above maintenance, and vice versa.
         return avg_cals - slope * KCAL_PER_LB
 
+
 class TrendAnalyzer:
-    def __init__ (self, log:CaloriesLog):
+    def __init__(self, log: CaloriesLog):
         self._log = log
 
     def moving_average(self, window_size: int, field: str = "calories") -> list[float]:
@@ -325,13 +331,13 @@ class TrendAnalyzer:
         else:
             values = [entry.weight for entry in self._log]
 
-        if len(values) < window_size or window_size <= 0: # Check if the window size is valid
+        if len(values) < window_size or window_size <= 0:  # Check if the window size is valid
             return []
 
         moving_averages = []
 
-        for i in range (len(values) - window_size + 1): # Iterate through the list
-            window = values [i:i + window_size] # Get the current window
+        for i in range(len(values) - window_size + 1):  # Iterate through the list
+            window = values[i : i + window_size]  # Get the current window
             average = sum(window) / window_size
             moving_averages.append(average)
 
@@ -374,6 +380,7 @@ class TrendAnalyzer:
             return f"Losing weight: {shown:.2f} {unit}/day average"
         else:
             return f"Gaining weight: {shown:.2f} {unit}/day average"
+
 
 class EntryValidator:
     CALORIE_RANGE = (MIN_LOGGED_CALORIES, MAX_DAILY_CALORIES)
@@ -420,10 +427,10 @@ class EntryValidator:
                 continue
             day_gap = max(abs((day - neighbour.date.date()).days), 1)
             if abs(entry.weight - neighbour.weight) > MAX_LBS_PER_DAY * day_gap + tolerance:
-                return (f"weight change too large compared with a nearby entry "
-                        f"(more than {MAX_LBS_PER_DAY} lbs per day)")
+                return f"weight change too large compared with a nearby entry (more than {MAX_LBS_PER_DAY} lbs per day)"
 
         return None
+
 
 class GoalPlanner:
     # Daily intake range for recommendations; the floor is the safety minimum.
@@ -434,14 +441,17 @@ class GoalPlanner:
     _EPS_LBS = 1e-9
     _EPS_KCAL = 1e-6
 
-    def __init__ (self, current_weight: float, target_weight: float, time_frame: int, maintenance_calories: float):
+    def __init__(self, current_weight: float, target_weight: float, time_frame: int, maintenance_calories: float):
         # bool is an int subclass but never a meaningful number of days
         if isinstance(time_frame, bool) or not isinstance(time_frame, int):
             raise TypeError(f"Time frame must be a whole number of days, got {time_frame!r}")
         if time_frame <= 0:
             raise ValueError(f"Time frame must be a positive number of days, got {time_frame}")
-        for name, value in (("Current weight", current_weight), ("Target weight", target_weight),
-                            ("Maintenance calories", maintenance_calories)):
+        for name, value in (
+            ("Current weight", current_weight),
+            ("Target weight", target_weight),
+            ("Maintenance calories", maintenance_calories),
+        ):
             if not math.isfinite(value):
                 raise ValueError(f"{name} must be a finite number, got {value!r}")
         self._current_weight = current_weight
@@ -479,7 +489,7 @@ class GoalPlanner:
         # eating c kcal/day changes weight by (c - maintenance) / k * (1 - r**t)
         # after t days, with k = ADAPT_KCAL_PER_LB and r = 1 - k / KCAL_PER_LB.
         r = 1 - ADAPT_KCAL_PER_LB / KCAL_PER_LB
-        return self._maintenance + weight_diff * ADAPT_KCAL_PER_LB / (1 - r ** days)
+        return self._maintenance + weight_diff * ADAPT_KCAL_PER_LB / (1 - r**days)
 
     def _is_too_fast(self, days: int) -> bool:
         loss_per_week = (self._current_weight - self._target_weight) / days * 7
@@ -581,8 +591,7 @@ class GoalPlanner:
             else:
                 kind = "safe" if loss > 0 else "realistic"
                 warnings.append(
-                    f"A {kind} time frame for this goal is at least {safe_days} days "
-                    f"(about {safe_days / 7:.1f} weeks)."
+                    f"A {kind} time frame for this goal is at least {safe_days} days (about {safe_days / 7:.1f} weeks)."
                 )
         return warnings
 
@@ -600,14 +609,18 @@ class GoalPlanner:
             return (weight - self._target_weight) ** 2  # Minimize the squared difference
 
         low, high = self.CALORIE_BOUNDS
-        result = minimize_scalar(objective, bounds=(low, high), method='bounded')
+        result = minimize_scalar(objective, bounds=(low, high), method="bounded")
         if not result.success:
             logger.warning("Optimization did not converge: %s", result.message)
         # result.fun is the squared miss in lbs; a reachable target is hit almost exactly,
         # so a real miss means the optimum is held back by a calorie bound.
         # safety_warnings() reports this to the user, so it is only logged at INFO
         # (and without the target weight, which is personal data).
-        if result.fun > UNREACHABLE_TOLERANCE_LBS ** 2:
-            logger.info("Target is not reachable within %s-%s kcal/day in %d days; "
-                        "recommendation is pinned at the bound", low, high, self._time_frame)
+        if result.fun > UNREACHABLE_TOLERANCE_LBS**2:
+            logger.info(
+                "Target is not reachable within %s-%s kcal/day in %d days; recommendation is pinned at the bound",
+                low,
+                high,
+                self._time_frame,
+            )
         return float(result.x)

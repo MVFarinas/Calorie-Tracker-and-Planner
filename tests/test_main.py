@@ -140,10 +140,13 @@ def test_plan_goal_warns_about_extreme_gain(monkeypatch, capsys):
     assert "realistic time frame" in captured.out
 
 
-@pytest.mark.parametrize("answers", [
-    ["7", "5", "196.8", "146.8", "30", EXIT],   # unsafe loss
-    ["7", "5", "150", "300", "5", EXIT],        # extreme gain
-])
+@pytest.mark.parametrize(
+    "answers",
+    [
+        ["7", "5", "196.8", "146.8", "30", EXIT],  # unsafe loss
+        ["7", "5", "150", "300", "5", EXIT],  # extreme gain
+    ],
+)
 def test_unsafe_goals_log_nothing_at_default_level(monkeypatch, capsys, answers):
     # stdout warnings are enough; nothing (in particular no target weight) is logged.
     records: list[logging.LogRecord] = []
@@ -161,6 +164,7 @@ def test_unsafe_goals_log_nothing_at_default_level(monkeypatch, capsys, answers)
 
 
 # --- Persistence and editing ---------------------------------------------
+
 
 def saved_rows(path):
     return [(row["date"], row["weight"], row["calories"]) for row in json.loads(path.read_text())]
@@ -328,8 +332,9 @@ def test_corrupt_data_file_refuses_to_start(monkeypatch, capsys, tmp_path):
     assert path.read_text() == "{oops"
 
 
-@pytest.mark.skipif(sys.platform == "win32" or os.geteuid() == 0,
-                    reason="POSIX permissions only; root can search any directory")
+@pytest.mark.skipif(
+    sys.platform == "win32" or os.geteuid() == 0, reason="POSIX permissions only; root can search any directory"
+)
 def test_unsearchable_data_directory_refuses_to_start(monkeypatch, capsys, tmp_path):
     locked = tmp_path / "locked"
     locked.mkdir()
@@ -451,6 +456,7 @@ def test_exit_after_successful_saves_does_not_save_again(monkeypatch, tmp_path):
 
 # --- Weight units ----------------------------------------------------------
 
+
 def test_parse_args_units():
     assert cli.parse_args([]).units is None
     assert cli.parse_args(["--units", "kg"]).units == "kg"
@@ -469,7 +475,7 @@ def test_kg_entry_is_stored_in_lbs_and_shown_in_kg(monkeypatch, capsys, tmp_path
     cli.main(path, units="kg")
     out = capsys.readouterr().out
     assert "2025-07-01  90.5 kg  2200 cals" in out
-    (date, weight, calories), = saved_rows(path)
+    ((date, weight, calories),) = saved_rows(path)
     assert weight == pytest.approx(90.5 / 0.45359237)
 
 
@@ -542,6 +548,7 @@ def test_weight_moving_average_in_kg(monkeypatch, capsys):
 
 # --- Trend chart ----------------------------------------------------------
 
+
 def test_trend_chart_with_demo_data(monkeypatch, capsys):
     feed_input(monkeypatch, ["7", "6", "2", EXIT])
     cli.main()
@@ -574,6 +581,7 @@ def test_trend_menu_invalid_choice(monkeypatch, capsys):
 
 
 # --- Export ---------------------------------------------------------------
+
 
 @pytest.mark.parametrize("name", ["out.csv", "out.json"])
 def test_export_round_trips_through_loader(monkeypatch, capsys, tmp_path, name):
@@ -616,10 +624,13 @@ def test_export_with_empty_log(monkeypatch, capsys):
     assert "No entries to export." in capsys.readouterr().out
 
 
-@pytest.mark.parametrize("answer,message", [
-    ("", "Nothing exported."),
-    ("out.txt", "must end in .csv or .json"),
-])
+@pytest.mark.parametrize(
+    "answer,message",
+    [
+        ("", "Nothing exported."),
+        ("out.txt", "must end in .csv or .json"),
+    ],
+)
 def test_export_bad_paths(monkeypatch, capsys, tmp_path, answer, message):
     monkeypatch.chdir(tmp_path)
     feed_input(monkeypatch, ["7", "11", answer, EXIT])
@@ -722,5 +733,9 @@ def test_weight_prompts_name_the_unit(monkeypatch):
     monkeypatch.setattr(builtins, "input", fake_input)
     cli.main(units="kg")
     weight_prompts = [p for p in prompts if "weight" in p]
-    assert weight_prompts == ["Enter weight (kg): ", "Enter current weight (kg): ",
-                              "Enter target weight (kg): ", "Enter new weight (kg): "]
+    assert weight_prompts == [
+        "Enter weight (kg): ",
+        "Enter current weight (kg): ",
+        "Enter target weight (kg): ",
+        "Enter new weight (kg): ",
+    ]
